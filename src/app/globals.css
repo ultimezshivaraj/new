@@ -1,0 +1,227 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────
+   CSS VARIABLES — exact match from admin.html
+   ───────────────────────────────────────────── */
+:root {
+  /* ── Admin panel originals ── */
+  --bg:          #06080c;
+  --bg2:         #111318;
+  --bg3:         #0d0f14;
+  --border:      #1e2028;
+  --border2:     #25272f;
+  --text:        #e4e4e7;
+  --text2:       #a1a1aa;
+  --text3:       #71717a;
+  --text4:       #52525b;
+  --accent:      linear-gradient(135deg, #f59e0b, #ef4444);
+  --accent-c:    #f59e0b;
+  --card-hover:  #13151b;
+  --input-bg:    #0d0f14;
+  --code-color:  #a5f3fc;
+  --overlay:     rgba(0, 0, 0, 0.7);
+
+  /* ── Employee / Client panel extras ── */
+  --card:        #111318;
+  --muted:       #71717a;
+  --subtle:      #3f3f46;
+  --green:       #22c55e;
+  --green-dim:   #14532d;
+  --amber:       #f59e0b;
+  --amber-dim:   #78350f;
+  --red:         #ef4444;
+  --red-dim:     #7f1d1d;
+  --blue:        #3b82f6;
+  --blue-dim:    #1e3a8a;
+  --cyan:        #06b6d4;
+  --purple:      #6366f1;
+  --purple-dim:  #312e81;
+  --accent-dim:  #312e81;
+  --font-sans:   'DM Sans', sans-serif;
+  --font-mono:   'JetBrains Mono', monospace;
+}
+
+[data-theme="light"] {
+  --bg:          #f8f9fb;
+  --bg2:         #ffffff;
+  --bg3:         #f1f3f5;
+  --border:      #e2e4e8;
+  --border2:     #d1d5db;
+  --text:        #1a1a2e;
+  --text2:       #4a4a5a;
+  --text3:       #6b7280;
+  --text4:       #9ca3af;
+  --card-hover:  #f3f4f6;
+  --input-bg:    #ffffff;
+  --code-color:  #0369a1;
+  --overlay:     rgba(0, 0, 0, 0.4);
+
+  --card:        #ffffff;
+  --muted:       #6b7280;
+  --subtle:      #9ca3af;
+  --green:       #16a34a;
+  --green-dim:   #dcfce7;
+  --amber:       #d97706;
+  --amber-dim:   #fef3c7;
+  --red:         #dc2626;
+  --red-dim:     #fee2e2;
+  --blue:        #2563eb;
+  --blue-dim:    #dbeafe;
+  --cyan:        #0891b2;
+  --purple:      #4f46e5;
+  --purple-dim:  #ede9fe;
+  --accent-dim:  #ede9fe;
+}
+
+[data-theme="light"] {
+  --bg:      #f4f5f7;
+  --bg2:     #ffffff;
+  --bg3:     #eef0f3;
+  --card:    #ffffff;
+  --border:  #e2e4e8;
+  --text:    #111827;
+  --text2:   #4b5563;
+  --text3:   #6b7280;
+  --text4:   #9ca3af;
+}
+
+/* ─────────────────────────────────────────────
+   GLOBAL RESETS
+   ───────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR — subtle dark styling
+   ───────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text4); }
+
+/* ─────────────────────────────────────────────
+   GRADIENT BUTTON HELPER
+   Used on .btn-primary and .btn-add (FAB)
+   ───────────────────────────────────────────── */
+.btn-gradient {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  border: none;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+.btn-gradient:hover {
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
+}
+
+/* ─────────────────────────────────────────────
+   MODAL — transition helpers
+   ───────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.15s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────
+   TOAST ANIMATION
+   ───────────────────────────────────────────── */
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes slideOut {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(100px); opacity: 0; }
+}
+
+.toast-enter { animation: slideIn 0.3s ease forwards; }
+.toast-exit  { animation: slideOut 0.25s ease forwards; }
+
+/* ─────────────────────────────────────────────
+   CARD HOVER — translateY
+   ───────────────────────────────────────────── */
+.report-card {
+  transition: border-color 0.2s, transform 0.2s, background 0.3s;
+}
+.report-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border2) !important;
+}
+
+/* ─────────────────────────────────────────────
+   FAB (floating action button)
+   ───────────────────────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+  transition: transform 0.2s;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fab:hover { transform: scale(1.1); }
+
+/* ─────────────────────────────────────────────
+   TEXTAREA — code font override
+   ───────────────────────────────────────────── */
+textarea.code-area {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--code-color);
+  resize: vertical;
+  line-height: 1.6;
+  min-height: 180px;
+}
+
+/* ─────────────────────────────────────────────
+   CARD SQL PREVIEW
+   ───────────────────────────────────────────── */
+.card-query-preview {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text4);
+  background: var(--bg3);
+  padding: 8px 10px;
+  border-radius: 6px;
+  max-height: 60px;
+  overflow: hidden;
+  white-space: pre;
+  line-height: 1.5;
+}
