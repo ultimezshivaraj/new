@@ -28,7 +28,7 @@ const ADMIN_NAV: NavItem[] = [
   { type: 'link', key: 'reports',       icon: '▲', label: 'QD Reports' },
 
   { type: 'divider', label: 'Developer' },
-  { type: 'link', key: 'projects',        icon: '⌥', label: 'QD Dev' },
+  { type: 'link', key: 'qd-dev',        icon: '⌥', label: 'QD Dev' },
   { type: 'link', key: 'qd-tools',      icon: '⚙', label: 'QD Tools' },
 ]
 

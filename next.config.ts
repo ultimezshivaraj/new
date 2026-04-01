@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
-const config: NextConfig = {
-  experimental: { serverActions: { bodySizeLimit: '50mb' } },
+const nextConfig: NextConfig = {
+  // No changes needed — Next.js handles routing automatically
 }
 
-export default config
+export default nextConfig
