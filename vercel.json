@@ -3,7 +3,9 @@
   "functions": {
     "src/app/api/reports/route.ts":    { "maxDuration": 30 },
     "src/app/api/run-report/route.ts": { "maxDuration": 30 },
-    "src/app/api/sync/teramind/route.ts": { "maxDuration": 300 }
+    "src/app/api/sync/teramind/route.ts": { "maxDuration": 300 },
+    "src/app/api/admin/projects/[id]/analyse/route.ts": { "maxDuration": 300 },
+    "src/app/api/admin/projects/[id]/chat/route.ts":    { "maxDuration": 120 }
   },
   "crons": [
     {
