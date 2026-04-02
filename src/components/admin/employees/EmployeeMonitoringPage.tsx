@@ -51,8 +51,17 @@ export const ADMIN_NAV: NavItem[] = [
   { type: 'link', key: 'reports',       icon: '▲', label: 'QD Reports' },
 
   { type: 'divider', label: 'Developer' },
-  { type: 'link', key: 'qd-dev',        icon: '⌥', label: 'QD Dev' },
-  { type: 'link', key: 'qd-tools',      icon: '⚙', label: 'QD Tools' },
+  { type: 'dropdown', key: 'qd-dev', icon: '⌥', label: 'QD Dev',
+    children: [
+      { key: 'qd-dev-projects',  label: 'Projects'         },
+      { key: 'qd-dev-tools',     label: 'QD Tools'         },
+      { key: 'qd-dev-analyser',  label: 'Code Analyser'    },
+      { key: 'qd-dev-api',       label: 'API Endpoints'    },
+      { key: 'qd-dev-fields',    label: 'Fields Reference' },
+      { key: 'qd-dev-planner',   label: 'Page Planner'     },
+      { key: 'qd-dev-setup',     label: 'Setup Guide'      },
+    ],
+  },
 ]
 
 // ─── Shared style objects ─────────────────────────────────────
@@ -1434,6 +1443,8 @@ export default function EmployeeMonitoringPage({ session }: { session: SessionPa
     if (key === 'employees') return // already here
     // Back Office tab keys → navigate to backoffice with tab param
     if (key.startsWith('bo-')) { router.push(`/admin/backoffice?tab=${key}`); return }
+    // QD Dev sub-page keys → navigate to /admin/qd-dev/<sub>
+    if (key.startsWith('qd-dev-')) { router.push(`/admin/qd-dev/${key.slice(7)}`); return }
     router.push(`/admin/${key}`)
   }
 
