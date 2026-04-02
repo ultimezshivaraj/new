@@ -57,6 +57,7 @@ export default function BackOfficePage({ session, initialTab }: { session: Sessi
   function handleNav(key: string) {
     if (key.startsWith('bo-') && isBoTab(key)) { switchTab(key); return }
     if (key === 'employees') { router.push('/admin/employees'); return }
+    if (key.startsWith('qd-dev-')) { router.push(`/admin/qd-dev/${key.slice(7)}`); return }
     router.push(`/admin/${key}`)
   }
 
