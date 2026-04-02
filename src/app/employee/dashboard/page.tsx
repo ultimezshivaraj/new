@@ -45,7 +45,7 @@ export default async function EmployeeDashboardPage() {
       LIMIT 3
     `),
 
-    // ── Last 30 days reports ──────────────────────────────────────
+    // ── Last 180 days reports ──────────────────────────────────────
     bqQuery<Record<string, unknown>>(`
       SELECT
         CAST(date AS STRING)                       AS date,
@@ -62,7 +62,7 @@ export default async function EmployeeDashboardPage() {
       FROM \`${T}.newultimez_team_tbl_employees_work_reports\`
       WHERE employee_row_id = ${empId}
       ORDER BY date DESC
-      LIMIT 30
+      LIMIT 180
     `),
 
     // ── 30-day aggregate stats ────────────────────────────────────

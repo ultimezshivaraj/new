@@ -2,11 +2,12 @@
 // src/components/employee/EmployeeDashboardClient.tsx
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import PageShell, { NavItem } from '@/components/shared/PageShell'
 import { SessionPayload } from '@/lib/session'
 import { ROLE_MAP, ROLE_COLORS } from '@/components/employee/roleMap'
 
-const IMAGE_BASE = 'https://app.ultimez.com/uploads/employee/profile/'
+const IMAGE_BASE = 'https://ultimez.com/team/uploads/profile/'
 const OFFICE_IP  = '61.3.18.4'
 
 // ── Daily messages from Qadir Kazi ────────────────────────────
@@ -141,7 +142,11 @@ export default function EmployeeDashboardClient({
   session, todayReports, recentReports, stats, profile, alerts, loginHistory,
 }: Props) {
   type Page = 'dashboard' | 'overview' | 'history' | 'alerts' | 'logins' | 'achievements'
+  const router = useRouter()
   const [page, setPage] = useState<Page>('dashboard')
+  const [monthOffset, setMonthOffset] = useState(0) // 0 = current month, 1 = last month, ... 5 = 5 months ago
+  const [qdFriendOpen, setQdFriendOpen]   = useState(false)
+  const [qdFriendAnswer, setQdFriendAnswer] = useState<{ q: string; a: string } | null>(null)
 
   const roles    = getRoles(session.roles || '')
   const dept     = deptFromRoles(session.roles || '')
@@ -152,11 +157,16 @@ export default function EmployeeDashboardClient({
   const highDays  = parseInt(String(stats.high_perf_days || 0))
 
   // ── This month's calculations (from recentReports, filtered client-side) ──
-  const thisMonth     = new Date().getMonth()
-  const thisYear      = new Date().getFullYear()
+  const now           = new Date()
+  const thisMonth     = now.getMonth()
+  const thisYear      = now.getFullYear()
+  const viewDate      = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1)
+  const viewMonth     = viewDate.getMonth()
+  const viewYear      = viewDate.getFullYear()
+  const viewMonthName = viewDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
   const monthReports  = recentReports.filter(r => {
     const d = new Date(r.date as string)
-    return d.getMonth() === thisMonth && d.getFullYear() === thisYear &&
+    return d.getMonth() === viewMonth && d.getFullYear() === viewYear &&
            parseFloat(r.productivity_percentage as string) > 0
   })
   const monthAvg      = monthReports.length
@@ -167,6 +177,22 @@ export default function EmployeeDashboardClient({
   const monthHighDays = monthReports.filter(r => parseFloat(r.productivity_percentage as string) >= 70).length
   const monthLowDays  = monthReports.filter(r => parseFloat(r.productivity_percentage as string) < 40).length
   const monthDays     = monthReports.length
+
+  // ── Previous month avg for delta comparison ───────────────────
+  const prevViewDate     = new Date(now.getFullYear(), now.getMonth() - monthOffset - 1, 1)
+  const prevMonthReports = recentReports.filter(r => {
+    const d = new Date(r.date as string)
+    return d.getMonth() === prevViewDate.getMonth() && d.getFullYear() === prevViewDate.getFullYear() &&
+           parseFloat(r.productivity_percentage as string) > 0
+  })
+  const prevMonthAvg  = prevMonthReports.length
+    ? Math.round(prevMonthReports.reduce((s, r) =>
+        s + (parseFloat(r.productivity_percentage as string) || 0), 0
+      ) / prevMonthReports.length * 10) / 10
+    : null
+  const monthDelta    = prevMonthAvg !== null
+    ? Math.round((monthAvg - prevMonthAvg) * 10) / 10
+    : null
 
   // ── Week-over-week ────────────────────────────────────────────
   const last7    = recentReports.slice(0, 7).filter(r => parseFloat(r.productivity_percentage as string) > 0)
@@ -252,14 +278,51 @@ export default function EmployeeDashboardClient({
     ? Math.max(...recentReports.map(r => parseFloat(r.productivity_percentage as string) || 0), 10)
     : 100
 
+  // ── QD Friend — static answers built from live data ──────────
+  const qdQuestions: { q: string; a: string }[] = [
+    {
+      q: 'How is my month going?',
+      a: monthDays > 0
+        ? `You've averaged <b>${monthAvg}%</b> across <b>${monthDays} working ${monthDays === 1 ? 'day' : 'days'}</b> in ${viewDate.toLocaleString('en-IN', { month:'long' })}. ${monthAvg >= 70 ? 'Great work — you\'re above the 70% target!' : monthAvg >= 50 ? 'You\'re in the average range. Push for more ≥70% days to finish strong.' : 'It\'s been a tough month. Focus on reducing idle time and closing distracting tabs.'}`
+        : `No data yet for ${viewDate.toLocaleString('en-IN', { month:'long' })}. Check back once your first report is generated.`,
+    },
+    {
+      q: 'Am I improving vs last month?',
+      a: monthDelta !== null
+        ? monthDelta > 0
+          ? `Yes! You're up <b>↑${Math.abs(monthDelta)}%</b> compared to last month (${prevMonthAvg}% → ${monthAvg}%). Keep the momentum going.`
+          : monthDelta < 0
+          ? `You're down <b>↓${Math.abs(monthDelta)}%</b> compared to last month (${prevMonthAvg}% → ${monthAvg}%). Try to identify what changed and get back on track.`
+          : `Your score is the same as last month at <b>${monthAvg}%</b>. Consistency is good — now push it higher.`
+        : `Not enough data to compare with the previous month yet.`,
+    },
+    {
+      q: 'How was my week?',
+      a: avg7 > 0
+        ? `Your last 7 days averaged <b>${avg7}%</b>. ${weekDelta > 0 ? `That's <b>+${weekDelta}% better</b> than the week before — great improvement!` : weekDelta < 0 ? `That's <b>${weekDelta}% lower</b> than the week before. Try to identify what slipped.` : `That matches the week before exactly.`}`
+        : `No data for the last 7 days yet.`,
+    },
+    {
+      q: "What's my current streak?",
+      a: streak > 0
+        ? `You're on a <b>${streak}-day streak</b> of ≥70% productivity. ${streak >= 5 ? '🔥 On fire! Keep it going.' : 'Keep it up — reach 5 days to earn the On Fire badge.'}`
+        : `No active streak right now. Hit ≥70% today to start one!`,
+    },
+    {
+      q: 'Do I have any alerts?',
+      a: monthAlertCount === 0
+        ? `No alerts this month — <b>you're clean!</b> Keep avoiding flagged apps and sites.`
+        : `You have <b>${monthAlertCount} alert${monthAlertCount > 1 ? 's' : ''}</b> this month. Check your Alerts page to see the rule names and what triggered them.`,
+    },
+    {
+      q: 'How can I improve my score?',
+      a: `Your current average is <b>${monthAvg > 0 ? monthAvg : avgProd}%</b>. ${monthAvg < 70 ? 'To reach the 70% target: ' : 'To go even higher: '}log in on time, close non-work tabs during focus hours, and reduce idle gaps between tasks. Even <b>20 fewer idle minutes</b> a day can add ~5% to your score.`,
+    },
+  ]
+
   // ── Nav items ─────────────────────────────────────────────
   const NAV: NavItem[] = [
-    {
-      type: 'link',
-      key: 'dashboard',
-      icon: '◈',
-      label: 'Dashboard',
-    },
+    { type: 'link', key: 'dashboard', icon: '◈', label: 'Dashboard' },
     {
       type: 'dropdown',
       key: 'profile',
@@ -274,9 +337,33 @@ export default function EmployeeDashboardClient({
         { key: 'logins',        label: 'Login History' },
       ],
     },
+
+    // ── Back Office — inline dropdowns, navigate to backoffice page with tab ──
+    { type: 'divider', label: 'Back Office' },
+    { type: 'dropdown', key: 'emp-leave', icon: '📋', label: 'Leave & Related',
+      children: [
+        { key: 'emp-leave-requests', label: 'My Leave Requests' },
+        { key: 'emp-leave-holidays', label: 'Holiday Calendar'  },
+        { key: 'emp-leave-pending',  label: 'My Pending'        },
+      ],
+    },
+    { type: 'dropdown', key: 'emp-payroll', icon: '💰', label: 'Payroll',
+      children: [
+        { key: 'emp-payroll-payslips', label: 'My Payslips'    },
+        { key: 'emp-payroll-bank-account',     label: 'My Bank Account' },
+      ],
+    },
+    { type: 'dropdown', key: 'emp-it', icon: '🖥', label: 'IT Services',
+      children: [
+        { key: 'emp-it-requests', label: 'My IT Requests' },
+        { key: 'emp-it-device',   label: 'My Device'      },
+      ],
+    },
   ]
 
   function handleNav(key: string) {
+    // Back Office tab keys — navigate to backoffice page with the tab pre-selected
+    if (key.startsWith('emp-')) { router.push(`/employee/backoffice?tab=${key}`); return }
     setPage(key as Page)
   }
 
@@ -328,16 +415,132 @@ export default function EmployeeDashboardClient({
             </div>
           </div>
 
+          {/* ── QD Friend — plain text link + tooltip above score card ── */}
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:6, position:'relative' }}>
+            <span
+              onClick={() => { setQdFriendOpen(o => !o); setQdFriendAnswer(null) }}
+              style={{ fontSize:12, color:'#8b5cf6', cursor:'pointer', fontWeight:500,
+                borderBottom:'1px dashed #8b5cf660', userSelect:'none' as const,
+                transition:'color 0.15s' }}>
+              What Is My Productivity
+            </span>
+
+            {qdFriendOpen && (
+              <div style={{ position:'absolute', top:26, right:0, width:300,
+                background:'var(--card)', border:'1px solid var(--border)',
+                borderRadius:14, zIndex:20, overflow:'hidden',
+                boxShadow:'0 4px 24px rgba(0,0,0,0.10)' }}>
+
+                {/* Tooltip header */}
+                <div style={{ padding:'11px 14px', borderBottom:'1px solid var(--border)',
+                  display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ width:26, height:26, borderRadius:'50%',
+                      background:'linear-gradient(135deg,#8b5cf6,#06b6d4)',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:10, fontWeight:700, color:'#fff', flexShrink:0 }}>QD</div>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600 }}>Productivity AI</div>
+                      <div style={{ fontSize:10, color:'var(--text3)' }}>Ask me about your work</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setQdFriendOpen(false)}
+                    style={{ width:22, height:22, borderRadius:6, border:'1px solid var(--border)',
+                      background:'var(--bg3)', cursor:'pointer', color:'var(--text3)',
+                      fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    ✕
+                  </button>
+                </div>
+
+                {/* Questions list */}
+                {!qdFriendAnswer ? (
+                  <>
+                    <div style={{ padding:'8px 14px 4px', fontSize:9, fontFamily:'var(--font-mono)',
+                      color:'var(--text3)', letterSpacing:.8, textTransform:'uppercase' as const }}>
+                      Quick questions
+                    </div>
+                    {qdQuestions.map((item, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setQdFriendAnswer(item)}
+                        style={{ padding:'9px 14px', fontSize:11, cursor:'pointer',
+                          color:'var(--text2)', borderBottom: i < qdQuestions.length - 1 ? '1px solid var(--border)' : 'none',
+                          display:'flex', alignItems:'center', gap:8,
+                          transition:'background 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background='var(--bg3)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background=''}>
+                        <div style={{ width:5, height:5, borderRadius:'50%',
+                          background:'#8b5cf6', flexShrink:0 }} />
+                        {item.q}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  /* Answer view */
+                  <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                    <div style={{ alignSelf:'flex-end', background:'var(--bg3)',
+                      border:'1px solid var(--border)', borderRadius:10,
+                      padding:'7px 11px', fontSize:11, color:'var(--text2)', maxWidth:'85%' }}>
+                      {qdFriendAnswer.q}
+                    </div>
+                    <div style={{ background:'#8b5cf608', border:'1px solid #8b5cf625',
+                      borderRadius:10, padding:'10px 12px', fontSize:11,
+                      color:'var(--text)', lineHeight:1.6 }}
+                      dangerouslySetInnerHTML={{ __html: qdFriendAnswer.a }} />
+                    <button
+                      onClick={() => setQdFriendAnswer(null)}
+                      style={{ width:'100%', marginTop:2, padding:7, borderRadius:8,
+                        border:'1px solid var(--border)', background:'var(--bg3)',
+                        fontSize:10, fontFamily:'var(--font-mono)', color:'var(--text3)',
+                        cursor:'pointer' }}>
+                      ← ask another question
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ── This Month's Productive Score — headline card ── */}
           <div style={{ background:'var(--card)', border:'1px solid var(--border)',
             borderLeft:`4px solid ${prodColor(monthAvg)}`,
             borderRadius:12, padding:'18px 20px', marginBottom:12 }}>
+
+            {/* Header: label + month nav buttons */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <div style={{ fontSize:9, fontFamily:'var(--font-mono)', letterSpacing:1,
+                textTransform:'uppercase' as const, color:'var(--text3)' }}>
+                This month's productive score
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:11, fontFamily:'var(--font-mono)', color:'var(--text3)',
+                  minWidth:110, textAlign:'right' as const }}>{viewMonthName}</span>
+                <button
+                  onClick={() => setMonthOffset(o => Math.min(o + 1, 5))}
+                  disabled={monthOffset >= 5}
+                  style={{ width:28, height:28, borderRadius:6, border:'0.5px solid var(--border)',
+                    background:'var(--bg3)', cursor:monthOffset >= 5 ? 'default' : 'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    opacity:monthOffset >= 5 ? 0.3 : 1, flexShrink:0,
+                    color:'var(--text)', fontSize:16, lineHeight:1 }}>
+                  ‹
+                </button>
+                <button
+                  onClick={() => setMonthOffset(o => Math.max(o - 1, 0))}
+                  disabled={monthOffset <= 0}
+                  style={{ width:28, height:28, borderRadius:6, border:'0.5px solid var(--border)',
+                    background:'var(--bg3)', cursor:monthOffset <= 0 ? 'default' : 'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    opacity:monthOffset <= 0 ? 0.3 : 1, flexShrink:0,
+                    color:'var(--text)', fontSize:16, lineHeight:1 }}>
+                  ›
+                </button>
+              </div>
+            </div>
+
             <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16 }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:9, fontFamily:'var(--font-mono)', letterSpacing:1,
-                  textTransform:'uppercase' as const, color:'var(--text3)', marginBottom:6 }}>
-                  This month's productive score
-                </div>
                 <div style={{ display:'flex', alignItems:'baseline', gap:10, marginBottom:10 }}>
                   <div style={{ fontSize:44, fontWeight:700, fontFamily:'var(--font-mono)',
                     color:prodColor(monthAvg), lineHeight:1 }}>
@@ -345,12 +548,14 @@ export default function EmployeeDashboardClient({
                   </div>
                   {monthDays > 0 && (
                     <div>
-                      <div style={{ fontSize:11, fontFamily:'var(--font-mono)',
-                        color: weekDelta >= 0 ? '#22c55e' : '#ef4444', fontWeight:600 }}>
-                        {weekDelta >= 0 ? '↑' : '↓'} {Math.abs(weekDelta)}% vs last week
-                      </div>
+                      {monthDelta !== null && (
+                        <div style={{ fontSize:11, fontFamily:'var(--font-mono)',
+                          color: monthDelta >= 0 ? '#22c55e' : '#ef4444', fontWeight:600 }}>
+                          {monthDelta >= 0 ? '↑' : '↓'} {Math.abs(monthDelta)}% vs last month
+                        </div>
+                      )}
                       <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                        {monthDays} working {monthDays === 1 ? 'day' : 'days'} in {new Date().toLocaleString('en-IN', { month:'long' })}
+                        {monthDays} working {monthDays === 1 ? 'day' : 'days'} in {viewDate.toLocaleString('en-IN', { month:'long' })}
                       </div>
                     </div>
                   )}
@@ -372,7 +577,7 @@ export default function EmployeeDashboardClient({
                       {monthLowDays} low days &lt;40%
                     </span>
                   )}
-                  {streak > 0 && (
+                  {streak > 0 && monthOffset === 0 && (
                     <span style={{ fontSize:10, fontFamily:'var(--font-mono)', padding:'2px 8px',
                       borderRadius:20, background:'#3b82f620', color:'#3b82f6' }}>
                       🔥 {streak} day streak
@@ -399,6 +604,40 @@ export default function EmployeeDashboardClient({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Month dot indicators — oldest left, newest right */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
+              gap:7, marginTop:16, paddingTop:14, borderTop:'1px solid var(--border)' }}>
+              {Array.from({ length: 6 }, (_, i) => {
+                const dotOffset = 5 - i // i=0 → oldest (offset 5), i=5 → newest (offset 0)
+                const dotDate   = new Date(now.getFullYear(), now.getMonth() - dotOffset, 1)
+                const isActive  = dotOffset === monthOffset
+                const dotRpts   = recentReports.filter(r => {
+                  const d = new Date(r.date as string)
+                  return d.getMonth() === dotDate.getMonth() && d.getFullYear() === dotDate.getFullYear() &&
+                         parseFloat(r.productivity_percentage as string) > 0
+                })
+                const dotAvg = dotRpts.length
+                  ? dotRpts.reduce((s, r) => s + (parseFloat(r.productivity_percentage as string) || 0), 0) / dotRpts.length
+                  : 0
+                return (
+                  <div
+                    key={i}
+                    onClick={() => setMonthOffset(dotOffset)}
+                    title={dotDate.toLocaleString('en-IN', { month:'long', year:'numeric' })}
+                    style={{
+                      width:  isActive ? 10 : 7,
+                      height: isActive ? 10 : 7,
+                      borderRadius: '50%',
+                      background: isActive ? prodColor(dotAvg) : 'var(--border)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      flexShrink: 0,
+                    }}
+                  />
+                )
+              })}
             </div>
           </div>
 

@@ -13,11 +13,34 @@ function adminHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }
 }
 
-// ─── Sidebar nav — mirrors the real HTML sidebar exactly ──────
-const ADMIN_NAV: NavItem[] = [
+// ─── Shared admin nav — used by both Employees page and Back Office page ──────
+export const ADMIN_NAV: NavItem[] = [
   { type: 'divider', label: 'People' },
   { type: 'link', key: 'employees',     icon: '◉', label: 'Employees' },
   { type: 'link', key: 'hr',            icon: '♡', label: 'HR Module' },
+
+  { type: 'divider', label: 'Back Office' },
+  { type: 'dropdown', key: 'bo-leave', icon: '📋', label: 'Leave & Related',
+    children: [
+      { key: 'bo-leave-requests', label: 'Leave Requests'    },
+      { key: 'bo-leave-holidays-calendar', label: 'Holiday Calendar'  },
+      { key: 'bo-leave-pending',  label: 'Pending Approvals' },
+    ],
+  },
+  { type: 'dropdown', key: 'bo-payroll', icon: '💰', label: 'Payroll',
+    children: [
+      { key: 'bo-payroll-records',  label: 'Payroll Records' },
+      { key: 'bo-payroll-bank-accounts', label: 'Bank Accounts'   },
+      { key: 'bo-payroll-logs',     label: 'Change History'  },
+    ],
+  },
+  { type: 'dropdown', key: 'bo-it', icon: '🖥', label: 'IT Services',
+    children: [
+      { key: 'bo-it-queries',  label: 'System Queries'       },
+      { key: 'bo-it-devices',  label: 'Device Inventory'     },
+      { key: 'bo-it-history',  label: 'Query Status History' },
+    ],
+  },
 
   { type: 'divider', label: 'Content' },
   { type: 'link', key: 'companies',     icon: '⬡', label: 'Companies' },
@@ -1409,6 +1432,8 @@ export default function EmployeeMonitoringPage({ session }: { session: SessionPa
   // Navigate to other admin pages via router
   function handleNav(key: string) {
     if (key === 'employees') return // already here
+    // Back Office tab keys → navigate to backoffice with tab param
+    if (key.startsWith('bo-')) { router.push(`/admin/backoffice?tab=${key}`); return }
     router.push(`/admin/${key}`)
   }
 
