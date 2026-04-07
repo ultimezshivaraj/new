@@ -17,41 +17,41 @@ type EmpBoTab =
   | 'emp-payroll-payslips' | 'emp-payroll-bank-account'
   | 'emp-it-requests' | 'emp-it-device'
 
-const EMP_LEAVE_TABS:   { key: EmpBoTab; label: string }[] = [
+const EMP_LEAVE_TABS: { key: EmpBoTab; label: string }[] = [
   { key: 'emp-leave-requests', label: '📄 My Leave Requests' },
-  { key: 'emp-leave-holidays', label: '📅 Holiday Calendar'  },
-  { key: 'emp-leave-pending',  label: '⏳ My Pending'        },
+  { key: 'emp-leave-holidays', label: '📅 Holiday Calendar' },
+  { key: 'emp-leave-pending', label: '⏳ My Pending' },
 ]
 const EMP_PAYROLL_TABS: { key: EmpBoTab; label: string }[] = [
-  { key: 'emp-payroll-payslips', label: '💳 My Payslips'      },
-  { key: 'emp-payroll-bank-account',     label: '🏦 My Bank Account'  },
+  { key: 'emp-payroll-payslips', label: '💳 My Payslips' },
+  { key: 'emp-payroll-bank-account', label: '🏦 My Bank Account' },
 ]
-const EMP_IT_TABS:      { key: EmpBoTab; label: string }[] = [
+const EMP_IT_TABS: { key: EmpBoTab; label: string }[] = [
   { key: 'emp-it-requests', label: '🔧 My IT Requests' },
-  { key: 'emp-it-device',   label: '💻 My Device'      },
+  { key: 'emp-it-device', label: '💻 My Device' },
 ]
 
 // ── Valid tab guard ───────────────────────────────────────────
 const ALL_BO_TAB_KEYS = new Set<string>([
-  'emp-leave-requests','emp-leave-holidays','emp-leave-pending',
-  'emp-payroll-payslips','emp-payroll-bank-account',
-  'emp-it-requests','emp-it-device',
+  'emp-leave-requests', 'emp-leave-holidays', 'emp-leave-pending',
+  'emp-payroll-payslips', 'emp-payroll-bank-account',
+  'emp-it-requests', 'emp-it-device',
 ])
 function isEmpBoTab(key: string): key is EmpBoTab { return ALL_BO_TAB_KEYS.has(key) }
 
 // ── Props ─────────────────────────────────────────────────────
 interface Props {
-  session:     SessionPayload
+  session: SessionPayload
   initialTab?: string
-  leaves:      LeaveRow[]
-  leaveTypes:  LeaveType[]
-  holidays:    HolidayRow[]
-  payslips:    PayslipRow[]
+  leaves: LeaveRow[]
+  leaveTypes: LeaveType[]
+  holidays: HolidayRow[]
+  payslips: PayslipRow[]
   bankAccount: BankAccountRow | null
-  bankLogs:    BankLogRow[]
-  itQueries:   ITQueryRow[]
+  bankLogs: BankLogRow[]
+  itQueries: ITQueryRow[]
   itQueryLogs: ITQueryLogRow[]
-  device:      DeviceRow | null
+  device: DeviceRow | null
 }
 
 export default function EmployeeBackOfficePage({
@@ -66,7 +66,7 @@ export default function EmployeeBackOfficePage({
   )
 
   // Counts for badges
-  const pendingCount   = leaves.filter(r => r.team_lead_approval_status === '0' || r.approval_status === '0').length
+  const pendingCount = leaves.filter(r => r.team_lead_approval_status === '0' || r.approval_status === '0').length
   const pendingITCount = itQueries.filter(q => q.status === '0').length
 
   // Switches tab AND syncs the URL — no jarring full-page navigations
@@ -78,47 +78,74 @@ export default function EmployeeBackOfficePage({
   // Nav mirrors EmployeeDashboardClient's NAV exactly:
   // Dashboard · Profile · divider "Back Office" · Leave & Related · Payroll · IT Services
   // Live badge counts are applied here since we have the data.
-  const EMP_BO_NAV: NavItem[] = [
-    { type: 'link', key: 'dashboard', icon: '◈', label: 'Dashboard' },
-    { type: 'link', key: 'profile',   icon: '◉', label: 'Profile'   },
+  // const EMP_BO_NAV: NavItem[] = [
+  //   { type: 'link', key: 'dashboard', icon: '◈', label: 'Dashboard' },
+  //   {
+  //     type: 'dropdown', key: 'profile', icon: '◉', label: 'Profile',
+  //     children: [
+  //       { key: 'overview', label: 'Overview' },
+  //       { key: 'achievements', label: 'Achievements' },
+  //       { key: 'history', label: 'Work History' },
+  //       { key: 'alerts', label: 'Alerts' },
+  //       { key: 'logins', label: 'Login History' },
+  //     ],
+  //   },
 
-    { type: 'divider', label: 'Back Office' },
-    { type: 'dropdown', key: 'emp-leave', icon: '📋', label: 'Leave & Related',
-      badge: pendingCount > 0 ? pendingCount : undefined,
-      children: [
-        { key: 'emp-leave-requests', label: 'My Leave Requests' },
-        { key: 'emp-leave-holidays', label: 'Holiday Calendar'  },
-        { key: 'emp-leave-pending',  label: 'My Pending', badge: pendingCount > 0 ? pendingCount : undefined },
-      ],
-    },
-    { type: 'dropdown', key: 'emp-payroll', icon: '💰', label: 'Payroll',
-      children: [
-        { key: 'emp-payroll-payslips', label: 'My Payslips'     },
-        { key: 'emp-payroll-bank-account',     label: 'My Bank Account' },
-      ],
-    },
-    { type: 'dropdown', key: 'emp-it', icon: '🖥', label: 'IT Services',
-      badge: pendingITCount > 0 ? pendingITCount : undefined,
-      children: [
-        { key: 'emp-it-requests', label: 'My IT Requests', badge: pendingITCount > 0 ? pendingITCount : undefined },
-        { key: 'emp-it-device',   label: 'My Device'      },
-      ],
-    },
-  ]
+  //   { type: 'divider', label: 'Back Office' },
+  //   {
+  //     type: 'dropdown', key: 'emp-leave', icon: '📋', label: 'Leave & Related',
+  //     badge: pendingCount > 0 ? pendingCount : undefined,
+  //     children: [
+  //       { key: 'emp-leave-requests', label: 'My Leave Requests' },
+  //       { key: 'emp-leave-holidays', label: 'Holiday Calendar' },
+  //       { key: 'emp-leave-pending', label: 'My Pending', badge: pendingCount > 0 ? pendingCount : undefined },
+  //     ],
+  //   },
+  //   {
+  //     type: 'dropdown', key: 'emp-payroll', icon: '💰', label: 'Payroll',
+  //     children: [
+  //       { key: 'emp-payroll-payslips', label: 'My Payslips' },
+  //       { key: 'emp-payroll-bank-account', label: 'My Bank Account' },
+  //     ],
+  //   },
+  //   {
+  //     type: 'dropdown', key: 'emp-it', icon: '🖥', label: 'IT Services',
+  //     badge: pendingITCount > 0 ? pendingITCount : undefined,
+  //     children: [
+  //       { key: 'emp-it-requests', label: 'My IT Requests', badge: pendingITCount > 0 ? pendingITCount : undefined },
+  //       { key: 'emp-it-device', label: 'My Device' },
+  //     ],
+  //   },
+  // ]
+
+  // function handleNav(key: string) {
+  //   if (key === 'dashboard') { router.push('/employee/dashboard'); return }
+  //   // Profile and all its children → go to dashboard (which handles these sub-pages)
+  //   if (['profile', 'overview', 'achievements', 'history', 'alerts', 'logins'].includes(key)) {
+  //     router.push(`/employee/dashboard?page=${key}`)
+  //     return
+  //   }
+  //   if (isEmpBoTab(key)) { switchTab(key); return }
+  // }
 
   function handleNav(key: string) {
+    if (isEmpBoTab(key)) { switchTab(key); return }
+    // fall through to PageShell default for dashboard, profile, etc.
+    // but PageShell won't call this for those — so handle them too:
     if (key === 'dashboard') { router.push('/employee/dashboard'); return }
-    if (key === 'profile')   { router.push('/employee/dashboard'); return }
-    if (isEmpBoTab(key))     { switchTab(key); return }
+    if (['profile', 'overview', 'achievements', 'history', 'alerts', 'logins'].includes(key)) {
+      router.push(`/employee/dashboard?page=${key}`)
+      return
+    }
   }
 
-  const isLeaveTab   = tab.startsWith('emp-leave-')
+  const isLeaveTab = tab.startsWith('emp-leave-')
   const isPayrollTab = tab.startsWith('emp-payroll-')
-  const isITTab      = tab.startsWith('emp-it-')
+  const isITTab = tab.startsWith('emp-it-')
 
   const sectionLabel = isLeaveTab ? 'Leave & Related' : isPayrollTab ? 'Payroll' : isITTab ? 'IT Services' : ''
-  const currentTabs  = isLeaveTab ? EMP_LEAVE_TABS : isPayrollTab ? EMP_PAYROLL_TABS : isITTab ? EMP_IT_TABS : []
-  const tabLabel     = [...EMP_LEAVE_TABS, ...EMP_PAYROLL_TABS, ...EMP_IT_TABS].find(t => t.key === tab)?.label ?? ''
+  const currentTabs = isLeaveTab ? EMP_LEAVE_TABS : isPayrollTab ? EMP_PAYROLL_TABS : isITTab ? EMP_IT_TABS : []
+  const tabLabel = [...EMP_LEAVE_TABS, ...EMP_PAYROLL_TABS, ...EMP_IT_TABS].find(t => t.key === tab)?.label ?? ''
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '10px 18px', border: 'none', fontSize: 13, fontWeight: 500,
@@ -132,9 +159,9 @@ export default function EmployeeBackOfficePage({
     <PageShell
       panel="employee"
       session={session}
-      navItems={EMP_BO_NAV}
       activeKey={tab}
-      onNav={handleNav}
+      onNav={handleNav}                  // ← add this back
+      employeeNavBadges={{ pendingLeaveCount: pendingCount, pendingITCount }}
       title="Team Panel"
       subtitle={tabLabel}
     >
@@ -184,7 +211,7 @@ export default function EmployeeBackOfficePage({
       {/* Leave */}
       {tab === 'emp-leave-requests' && <EmpLeaveRequestsTab leaves={leaves} leaveTypes={leaveTypes} />}
       {tab === 'emp-leave-holidays' && <EmpHolidayCalendarTab holidays={holidays} />}
-      {tab === 'emp-leave-pending'  && <EmpPendingTab leaves={leaves} />}
+      {tab === 'emp-leave-pending' && <EmpPendingTab leaves={leaves} />}
 
       {/* Payroll */}
       {isPayrollTab && <EmpPayrollTab

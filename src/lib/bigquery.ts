@@ -5,6 +5,7 @@ export const PROJECT        = 'for-ga4-bitquery-new'
 export const DATASET        = 'app_events_mongodb'
 export const TEAM_DATASET   = 'qd_ul_ultimez_team'
 export const REPORTS_TABLE  = `${PROJECT}.${DATASET}._dashboard_reports`
+export const DS_APP = 'qd_cp_app_events'   // the Coinpedia app dataset
 
 export function getBigQuery(): BigQuery {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON

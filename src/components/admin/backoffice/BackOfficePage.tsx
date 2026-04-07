@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PageShell, { NavItem } from '@/components/shared/PageShell'
 import { SessionPayload } from '@/lib/session'
-import { ADMIN_NAV } from '@/components/admin/employees/EmployeeMonitoringPage'
 import LeaveRequestsTab    from './LeaveRequestsTab'
 import HolidayCalendarTab  from './HolidayCalendarTab'
 import PendingApprovalsTab from './PendingApprovalsTab'
@@ -57,7 +56,6 @@ export default function BackOfficePage({ session, initialTab }: { session: Sessi
   function handleNav(key: string) {
     if (key.startsWith('bo-') && isBoTab(key)) { switchTab(key); return }
     if (key === 'employees') { router.push('/admin/employees'); return }
-    if (key.startsWith('qd-dev-')) { router.push(`/admin/qd-dev/${key.slice(7)}`); return }
     router.push(`/admin/${key}`)
   }
 
@@ -81,7 +79,6 @@ export default function BackOfficePage({ session, initialTab }: { session: Sessi
     <PageShell
       panel="admin"
       session={session}
-      navItems={ADMIN_NAV}
       activeKey={tab}
       onNav={handleNav}
       title="Admin Dashboard"

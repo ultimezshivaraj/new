@@ -10,5 +10,5 @@ export default async function AdminRootPage() {
   }
 
   // Redirect to the new primary reports management path
-  redirect('/admin/employees')
+  redirect('/admin/dashboard')
 }

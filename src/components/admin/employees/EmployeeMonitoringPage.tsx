@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import PageShell, { NavItem } from '@/components/shared/PageShell'
 import { SessionPayload } from '@/lib/session'
+import StatCard from '@/components/shared/StatCard'
 import EmpCard, { Employee, empRoles, prodColor, fmtMins, fmtHM } from './EmpCard'
 import EmpModal from './EmpModal'
 
@@ -12,57 +13,6 @@ function adminHeaders(): HeadersInit {
   const key = typeof window !== 'undefined' ? (localStorage.getItem('adminKey') ?? '') : ''
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }
 }
-
-// ─── Shared admin nav — used by both Employees page and Back Office page ──────
-export const ADMIN_NAV: NavItem[] = [
-  { type: 'divider', label: 'People' },
-  { type: 'link', key: 'employees',     icon: '◉', label: 'Employees' },
-  { type: 'link', key: 'hr',            icon: '♡', label: 'HR Module' },
-
-  { type: 'divider', label: 'Back Office' },
-  { type: 'dropdown', key: 'bo-leave', icon: '📋', label: 'Leave & Related',
-    children: [
-      { key: 'bo-leave-requests', label: 'Leave Requests'    },
-      { key: 'bo-leave-holidays-calendar', label: 'Holiday Calendar'  },
-      { key: 'bo-leave-pending',  label: 'Pending Approvals' },
-    ],
-  },
-  { type: 'dropdown', key: 'bo-payroll', icon: '💰', label: 'Payroll',
-    children: [
-      { key: 'bo-payroll-records',  label: 'Payroll Records' },
-      { key: 'bo-payroll-bank-accounts', label: 'Bank Accounts'   },
-      { key: 'bo-payroll-logs',     label: 'Change History'  },
-    ],
-  },
-  { type: 'dropdown', key: 'bo-it', icon: '🖥', label: 'IT Services',
-    children: [
-      { key: 'bo-it-queries',  label: 'System Queries'       },
-      { key: 'bo-it-devices',  label: 'Device Inventory'     },
-      { key: 'bo-it-history',  label: 'Query Status History' },
-    ],
-  },
-
-  { type: 'divider', label: 'Content' },
-  { type: 'link', key: 'companies',     icon: '⬡', label: 'Companies' },
-  { type: 'link', key: 'professionals', icon: '◎', label: 'Professionals' },
-  { type: 'link', key: 'reviews',       icon: '✦', label: 'Review Queue' },
-
-  { type: 'divider', label: 'Analytics' },
-  { type: 'link', key: 'reports',       icon: '▲', label: 'QD Reports' },
-
-  { type: 'divider', label: 'Developer' },
-  { type: 'dropdown', key: 'qd-dev', icon: '⌥', label: 'QD Dev',
-    children: [
-      { key: 'qd-dev-projects',  label: 'Projects'         },
-      { key: 'qd-dev-tools',     label: 'QD Tools'         },
-      { key: 'qd-dev-analyser',  label: 'Code Analyser'    },
-      { key: 'qd-dev-api',       label: 'API Endpoints'    },
-      { key: 'qd-dev-fields',    label: 'Fields Reference' },
-      { key: 'qd-dev-planner',   label: 'Page Planner'     },
-      { key: 'qd-dev-setup',     label: 'Setup Guide'      },
-    ],
-  },
-]
 
 // ─── Shared style objects ─────────────────────────────────────
 const TH: React.CSSProperties = {
@@ -75,18 +25,6 @@ const TD: React.CSSProperties = {
   padding: '9px 12px', fontSize: 12,
   borderBottom: '1px solid var(--border)', color: 'var(--text)',
   verticalAlign: 'top' as const,
-}
-
-// ─── Shared primitives ────────────────────────────────────────
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color }} />
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, fontFamily: 'var(--font-mono)', color }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
 }
 
 function Spinner({ text = 'Loading from BigQuery…' }: { text?: string }) {
@@ -1443,8 +1381,6 @@ export default function EmployeeMonitoringPage({ session }: { session: SessionPa
     if (key === 'employees') return // already here
     // Back Office tab keys → navigate to backoffice with tab param
     if (key.startsWith('bo-')) { router.push(`/admin/backoffice?tab=${key}`); return }
-    // QD Dev sub-page keys → navigate to /admin/qd-dev/<sub>
-    if (key.startsWith('qd-dev-')) { router.push(`/admin/qd-dev/${key.slice(7)}`); return }
     router.push(`/admin/${key}`)
   }
 
@@ -1512,7 +1448,6 @@ export default function EmployeeMonitoringPage({ session }: { session: SessionPa
     <PageShell
       panel="admin"
       session={session}
-      navItems={ADMIN_NAV}
       activeKey="employees"
       onNav={handleNav}
       title="Admin Dashboard"

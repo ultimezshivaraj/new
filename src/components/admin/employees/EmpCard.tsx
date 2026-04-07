@@ -80,7 +80,7 @@ const ROLE_COLOR: Record<string, string> = {
   'Academy Junior':               '#64748b',
 }
 
-export const IMAGE_BASE = 'https://app.ultimez.com/uploads/employee/profile/'
+export const IMAGE_BASE = 'https://ultimez.com/team/uploads/profile/'
 
 // ── Interfaces ────────────────────────────────────────────────
 export interface Employee {

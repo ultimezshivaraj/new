@@ -4,6 +4,7 @@
 import { useRouter }      from 'next/navigation'
 import PageShell, { NavItem } from '@/components/shared/PageShell'
 import { SessionPayload }  from '@/lib/session'
+import StatCard from '@/components/shared/StatCard'
 
 // ─── Nav (matches client dashboard) ──────────────────────────
 const CLIENT_NAV: NavItem[] = [
@@ -30,20 +31,6 @@ function fmtDate(d: string) {
   if (!d || d === 'None') return '—'
   try { return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) }
   catch { return '—' }
-}
-
-// ─── Sub-components ───────────────────────────────────────────
-function StatCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
-  return (
-    <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
-      padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color }} />
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1,
-        textTransform: 'uppercase' as const, color: 'var(--text4)', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'var(--font-mono)', color, lineHeight: 1 }}>{value || '—'}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text4)', marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

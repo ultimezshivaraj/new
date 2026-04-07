@@ -2,6 +2,7 @@
 // src/components/admin/backoffice/PayrollPage.tsx
 
 import { useState, useEffect, useMemo } from 'react'
+import StatCard from '@/components/shared/StatCard'
 
 // ── Shared helpers ─────────────────────────────────────────────
 function adminHeaders(): HeadersInit {
@@ -19,17 +20,6 @@ const TD: React.CSSProperties = {
   padding: '9px 12px', fontSize: 12,
   borderBottom: '1px solid var(--border)', color: 'var(--text)',
   verticalAlign: 'top' as const,
-}
-
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color }} />
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, fontFamily: 'var(--font-mono)', color }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
 }
 
 function Spinner() {

@@ -8,12 +8,14 @@ export const metadata = { title: 'My Dashboard — Ultimez Team' }
 
 const T = `${PROJECT}.${TEAM_DATASET}`
 
-// INTERVAL → "HH:MM" display string (kept as raw string for client)
-export default async function EmployeeDashboardPage() {
+interface PageProps { searchParams: Promise<{ page?: string }> }  // ← ADD
+
+export default async function EmployeeDashboardPage({ searchParams }: PageProps) {  // ← ADD
   const session = await getSession('employee')
   if (!session) redirect('/employee/login')
 
   const empId = session.id
+  const { page: initialPage } = await searchParams  // ← ADD
 
   const [
     workReports,
@@ -45,7 +47,7 @@ export default async function EmployeeDashboardPage() {
       LIMIT 3
     `),
 
-    // ── Last 180 days reports ──────────────────────────────────────
+    // ── Last 180 days reports ─────────────────────────────────────
     bqQuery<Record<string, unknown>>(`
       SELECT
         CAST(date AS STRING)                       AS date,
@@ -89,7 +91,6 @@ export default async function EmployeeDashboardPage() {
         CAST(e.employee_type AS STRING)                       AS employee_type,
         CAST(e.employee_category_type AS STRING)              AS employee_category_type,
         CAST(e.agent_id AS STRING)                            AS agent_id,
-        -- Team leader via tbl_employees_team_leaders
         COALESCE(
           STRING_AGG(DISTINCT tl_emp.full_name ORDER BY tl_emp.full_name),
           ''
@@ -110,7 +111,6 @@ export default async function EmployeeDashboardPage() {
     `),
 
     // ── Alerts with rule names (last 30 days) ─────────────────────
-    // Joins via agent_id (Teramind ID) to get human-readable rule names
     bqQuery<Record<string, unknown>>(`
       SELECT
         CAST(a.date AS STRING)                                              AS date,
@@ -156,6 +156,7 @@ export default async function EmployeeDashboardPage() {
   return (
     <EmployeeDashboardClient
       session={session}
+      // initialPage={initialPage}                                              // ← ADD
       todayReports={workReports.status === 'fulfilled'   ? workReports.value   : []}
       recentReports={recentReports.status === 'fulfilled' ? recentReports.value : []}
       stats={statsResult.status === 'fulfilled'          ? (statsResult.value[0] ?? {}) : {}}

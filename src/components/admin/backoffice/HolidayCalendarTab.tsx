@@ -2,22 +2,12 @@
 // src/components/admin/backoffice/HolidayCalendarTab.tsx
 
 import { useState, useEffect, useMemo } from 'react'
+import StatCard from '@/components/shared/StatCard'
 
 // ── Shared helpers ────────────────────────────────────────────
 function adminHeaders(): HeadersInit {
   const key = typeof window !== 'undefined' ? (localStorage.getItem('adminKey') ?? '') : ''
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }
-}
-
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color }} />
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, fontFamily: 'var(--font-mono)', color }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
 }
 
 function Spinner() {
@@ -62,9 +52,9 @@ function daysAwayLabel(days: number): string {
 // ── Main Component ────────────────────────────────────────────
 export default function HolidayCalendarTab() {
   const [holidays, setHolidays] = useState<HolidayRow[]>([])
-  const [loading,  setLoading]  = useState(false)
-  const [loaded,   setLoaded]   = useState(false)
-  const [error,    setError]    = useState('')
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState('')
   const [yearFilter, setYearFilter] = useState<string>('')
 
   useEffect(() => {
@@ -101,10 +91,10 @@ export default function HolidayCalendarTab() {
   }, [holidays, yearFilter])
 
   // Summary stats from filtered list
-  const total    = filtered.length
+  const total = filtered.length
   const upcoming = filtered.filter(h => h.status === 'upcoming').length
-  const past     = filtered.filter(h => h.status === 'past').length
-  const today    = filtered.find(h => h.status === 'today')
+  const past = filtered.filter(h => h.status === 'past').length
+  const today = filtered.find(h => h.status === 'today')
   const nextHoliday = filtered.find(h => h.status === 'upcoming' || h.status === 'today')
   const weekendHolidays = filtered.filter(h => h.day_of_week === '1').length
 
@@ -131,10 +121,10 @@ export default function HolidayCalendarTab() {
     <div>
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
-        <StatCard label="Total Holidays"    value={total}    color="var(--accent-c)" />
-        <StatCard label="Upcoming"          value={upcoming} color="#22c55e" sub={yearFilter} />
-        <StatCard label="Past"              value={past}     color="var(--text3)" sub={yearFilter} />
-        <StatCard label="On Weekend"        value={weekendHolidays} color="#8b5cf6" sub="Falls on Sunday" />
+        <StatCard label="Total Holidays" value={total} color="var(--accent-c)" />
+        <StatCard label="Upcoming" value={upcoming} color="#22c55e" sub={yearFilter} />
+        <StatCard label="Past" value={past} color="var(--text3)" sub={yearFilter} />
+        <StatCard label="On Weekend" value={weekendHolidays} color="#8b5cf6" sub="Falls on Sunday" />
         <StatCard
           label="Next Holiday"
           value={nextHoliday ? nextHoliday.holiday_details : '—'}
@@ -184,18 +174,18 @@ export default function HolidayCalendarTab() {
               </td></tr>
             ) : filtered.map((h, i) => {
               const daysAway = parseInt(h.days_away)
-              const isToday    = h.status === 'today'
+              const isToday = h.status === 'today'
               const isUpcoming = h.status === 'upcoming'
-              const isPast     = h.status === 'past'
-              const isWeekend  = h.day_of_week === '1'
-              const isNext     = nextHoliday?.id === h.id
+              const isPast = h.status === 'past'
+              const isWeekend = h.day_of_week === '1'
+              const isNext = nextHoliday?.id === h.id
 
               // Row color
               const rowBg = isToday
                 ? '#f59e0b08'
                 : isNext
-                ? '#22c55e06'
-                : undefined
+                  ? '#22c55e06'
+                  : undefined
 
               return (
                 <tr

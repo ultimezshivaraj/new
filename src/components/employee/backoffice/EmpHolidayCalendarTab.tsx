@@ -2,17 +2,7 @@
 // src/components/employee/backoffice/EmpHolidayCalendarTab.tsx
 
 import { useState, useMemo } from 'react'
-
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: color }} />
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, fontFamily: 'var(--font-mono)', color }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>{sub}</div>}
-    </div>
-  )
-}
+import StatCard from '@/components/shared/StatCard'
 
 export interface HolidayRow {
   id: string; holiday_date: string; holiday_details: string
@@ -51,19 +41,19 @@ export default function EmpHolidayCalendarTab({ holidays }: { holidays: HolidayR
 
   const filtered = useMemo(() =>
     yearFilter ? holidays.filter(h => h.holiday_date.startsWith(yearFilter)) : holidays
-  , [holidays, yearFilter])
+    , [holidays, yearFilter])
 
-  const upcoming        = filtered.filter(h => h.status === 'upcoming').length
-  const past            = filtered.filter(h => h.status === 'past').length
+  const upcoming = filtered.filter(h => h.status === 'upcoming').length
+  const past = filtered.filter(h => h.status === 'past').length
   const weekendHolidays = filtered.filter(h => h.day_of_week === '1').length
-  const nextHoliday     = filtered.find(h => h.status === 'upcoming' || h.status === 'today')
+  const nextHoliday = filtered.find(h => h.status === 'upcoming' || h.status === 'today')
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
-        <StatCard label="Total Holidays"  value={filtered.length} color="#8b5cf6" />
-        <StatCard label="Upcoming"        value={upcoming}        color="#22c55e" sub={yearFilter} />
-        <StatCard label="Past"            value={past}            color="var(--text3)" />
+        <StatCard label="Total Holidays" value={filtered.length} color="#8b5cf6" />
+        <StatCard label="Upcoming" value={upcoming} color="#22c55e" sub={yearFilter} />
+        <StatCard label="Past" value={past} color="var(--text3)" />
         <StatCard label="Next Holiday"
           value={nextHoliday ? nextHoliday.holiday_details : 'None'}
           color="#f59e0b"
@@ -101,13 +91,13 @@ export default function EmpHolidayCalendarTab({ holidays }: { holidays: HolidayR
             {filtered.length === 0 ? (
               <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>No holidays found</td></tr>
             ) : filtered.map((h, i) => {
-              const daysAway  = parseInt(h.days_away)
-              const isToday   = h.status === 'today'
+              const daysAway = parseInt(h.days_away)
+              const isToday = h.status === 'today'
               const isUpcoming = h.status === 'upcoming'
-              const isPast    = h.status === 'past'
+              const isPast = h.status === 'past'
               const isWeekend = h.day_of_week === '1'
-              const isNext    = nextHoliday?.id === h.id
-              const rowBg     = isToday ? '#f59e0b08' : isNext ? '#8b5cf608' : undefined
+              const isNext = nextHoliday?.id === h.id
+              const rowBg = isToday ? '#f59e0b08' : isNext ? '#8b5cf608' : undefined
               return (
                 <tr key={h.id} style={{ opacity: isPast ? 0.5 : 1, background: rowBg }}
                   onMouseEnter={e => { if (!rowBg) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
@@ -126,13 +116,13 @@ export default function EmpHolidayCalendarTab({ holidays }: { holidays: HolidayR
                   </td>
                   <td style={TD}>
                     {isToday ? <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, background: '#f59e0b20', color: '#f59e0b' }}>Today</span>
-                    : isUpcoming ? <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, background: '#22c55e20', color: '#22c55e' }}>Upcoming</span>
-                    : <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text4)' }}>Past</span>}
+                      : isUpcoming ? <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, background: '#22c55e20', color: '#22c55e' }}>Upcoming</span>
+                        : <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text4)' }}>Past</span>}
                   </td>
                   <td style={{ ...TD, fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                     {isToday ? <span style={{ color: '#f59e0b', fontWeight: 600 }}>Today!</span>
-                    : isUpcoming ? <span style={{ color: daysAway <= 7 ? '#22c55e' : 'var(--text2)', fontWeight: daysAway <= 7 ? 600 : 400 }}>{daysAwayLabel(daysAway)}</span>
-                    : <span style={{ color: 'var(--text4)' }}>{daysAwayLabel(daysAway)}</span>}
+                      : isUpcoming ? <span style={{ color: daysAway <= 7 ? '#22c55e' : 'var(--text2)', fontWeight: daysAway <= 7 ? 600 : 400 }}>{daysAwayLabel(daysAway)}</span>
+                        : <span style={{ color: 'var(--text4)' }}>{daysAwayLabel(daysAway)}</span>}
                   </td>
                 </tr>
               )
