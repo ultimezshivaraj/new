@@ -58,6 +58,7 @@ function buildEmployeeNav(badges: EmployeeNavBadges = {}): NavItem[] {
         { key: 'history', label: 'Work History' },
         { key: 'alerts', label: 'Alerts', badge: alertCount > 0 ? alertCount : undefined },
         { key: 'logins', label: 'Login History' },
+        { key: 'web-app-usage', label: 'Web & App Usage' },
       ],
     },
     { type: 'divider', label: 'Back Office' },
@@ -127,6 +128,10 @@ function buildAdminNav(): NavItem[] {
     { type: 'link', key: 'companies', icon: '⬡', label: 'Companies' },
     { type: 'link', key: 'professionals', icon: '◎', label: 'Professionals' },
     { type: 'link', key: 'reviews', icon: '✦', label: 'Review Queue' },
+
+    { type: 'divider', label: 'Work Monitoring' },
+    { type: 'link', key: 'work-monitoring/web-app-usage',      icon: '◌', label: 'Web & App Usage' },
+    { type: 'link', key: 'work-monitoring/productive-requests', icon: '◎', label: 'Productive Requests' },
 
     { type: 'divider', label: 'QD Tools' },
     { type: 'link', key: 'qd-dev', icon: '⌥', label: 'QD Dev' },
@@ -206,6 +211,7 @@ export default function PageShell({
   // ── Default nav handlers ──────────────────────────────────────
   function defaultEmployeeNav(key: string) {
     if (key === 'dashboard') { router.push('/employee/dashboard'); return }
+    if (key === 'web-app-usage') { router.push('/employee/profile/web-app-usage'); return }
     if (['profile', 'overview', 'achievements', 'history', 'alerts', 'logins'].includes(key)) {
       router.push(`/employee/dashboard?page=${key}`)
       return

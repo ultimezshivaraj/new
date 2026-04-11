@@ -17,7 +17,7 @@ const CLIENT_NAV: NavItem[] = [
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────
-const IMAGE_BASE = 'https://app.ultimez.com/uploads/client/profile/'
+const IMAGE_BASE = 'https://ultimez.com/team/uploads/profile/'
 
 function avatarBg(n: string) {
   const c = ['#06b6d4','#3b82f6','#8b5cf6','#14b8a6','#f59e0b']

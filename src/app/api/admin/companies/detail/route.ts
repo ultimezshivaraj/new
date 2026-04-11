@@ -23,8 +23,26 @@ const T_SUB_ADM = `${D}.main_db_cln_sub_admins`
 const T_ADMINS = `${D}.main_db_cln_admins`
 const T_COUNTRIES = `${D}.main_db_cln_static_countries`
 const T_BIZ_MDL = `${D}.main_db_cln_static_company_business_models`
+const T_EXCHANGE_BODIES = `${D}.main_db_cln_exchange_bodies`
+const T_REG_TYPES = `${D}.main_db_cln_company_regulatory_types`
+const T_FAQ = `${D}.main_db_cln_company_faq_lists`
+const T_EVENTS = `${D}.main_db_cln_events`
+const T_EVT_SPD = `${D}.main_db_cln_event_sponsor_partner_details`
 
-function safeRows<T>(result: PromiseSettledResult<T[]>): T[] {
+
+const D_MKT = `${PROJECT}.qd_cp_mongodb_markets`
+const T_COMPANY_PRODUCTS = `${D_MKT}.main_db_cln_company_products`
+const T_TOKENS = `${D_MKT}.main_db_cln_markets_tokens`
+const T_TOKENS_MANUAL = `${D_MKT}.main_db_cln_markets_search_contract_addresses`
+const T_CHAINS = `${D_MKT}.main_db_cln_chains`
+const T_CHAINS_MANUAL = `${D_MKT}.main_db_cln_chains_manuals`
+const T_EXCHANGES = `${D_MKT}.main_db_cln_exchanges`
+const T_EXCHANGES_MANUAL = `${D_MKT}.main_db_cln_exchanges_manuals`
+
+function safeRows<T>(result: PromiseSettledResult<T[]>, label = ''): T[] {
+  if (result.status === 'rejected') {
+    console.error(`[detail] query failed${label ? ' (' + label + ')' : ''}:`, result.reason?.message || result.reason)
+  }
   return result.status === 'fulfilled' ? result.value : []
 }
 
@@ -43,50 +61,71 @@ export async function GET(req: NextRequest) {
   // ── 1. Main company record ────────────────────────────────────
   const coRows = await bqQuery<Record<string, string>>(`
     SELECT
-      -- Core Company Info
-      JSON_VALUE(co.data, '$._id') AS company_id,
-      JSON_VALUE(co.data, '$.company_name') AS company_name,
-      JSON_VALUE(co.data, '$.company_id') AS company_url,
-      JSON_VALUE(co.data, '$.website_link') AS website,
-      
-      -- Profile Image Logic
-      CASE 
+      CAST(co._id AS STRING)                              AS company_id,
+      JSON_VALUE(co.data, '$.company_name')               AS company_name,
+      JSON_VALUE(co.data, '$.company_id')                 AS company_url,
+      JSON_VALUE(co.data, '$.website_link')               AS website,
+      CASE
         WHEN JSON_VALUE(co.data, '$.company_logo') IS NOT NULL AND JSON_VALUE(co.data, '$.company_logo') != ''
         THEN CONCAT('https://image.coinpedia.org/app_uploads/company_logo/', JSON_VALUE(co.data, '$.company_logo'))
-        ELSE NULL 
-      END AS profile_image,
+        ELSE NULL
+      END                                                  AS profile_image,
+      JSON_VALUE(bm.data, '$.business_name')              AS primary_category,
+      (
+        SELECT STRING_AGG(JSON_VALUE(bm2.data, '$.business_name'), ', ')
+        FROM \`${T_BIZ_MDL}\` bm2
+        WHERE CAST(JSON_VALUE(bm2.data, '$._id') AS STRING)
+          IN UNNEST(JSON_VALUE_ARRAY(co.data, '$.business_model_id'))
+          AND JSON_VALUE(bm2.data, '$._id') != JSON_VALUE(co.data, '$.main_business_model_id')
+      ) AS secondary_categories,
+      JSON_VALUE(co.data, '$.about_company')              AS company_description,
+      JSON_VALUE(co.data, '$.describe_in_one_line')       AS tagline,
+      SAFE_CAST(JSON_VALUE(co.data, '$.created_date_n_time."$date"')  AS INT64) AS created_at_ms,
+      SAFE_CAST(JSON_VALUE(co.data, '$.updated_date_n_time."$date"')  AS INT64) AS updated_at_ms,
+      SAFE_CAST(JSON_VALUE(co.data, '$.established_in."$date"')       AS INT64) AS launch_date_ms,
+      JSON_VALUE(co.data, '$.contact_number')             AS contact_number,
+      JSON_VALUE(co.data, '$.company_email_id')           AS email,
+      JSON_VALUE(co.data, '$.company_location')           AS location,
+      JSON_VALUE(ct.data, '$.country_name')               AS country,
+      JSON_VALUE(co.data, '$.city')                       AS city,
+      JSON_VALUE(co.data, '$.state')                      AS state,
+      JSON_VALUE(co.data, '$.headquarter')                AS address,
+      JSON_VALUE(co.data, '$.latitude')                   AS latitude,
+      JSON_VALUE(co.data, '$.longitude')                  AS longitude,
+      JSON_VALUE(co.data, '$.nft_wallet_address')         AS nft_wallet_address,
+      JSON_VALUE(co.data, '$.stock_symbol')               AS stock_symbol,
+      JSON_VALUE(co.data, '$.cmc_id')                     AS cmc_id,
+      JSON_VALUE(co.data, '$.coingecko_id')               AS coingecko_id,
+      JSON_VALUE(co.data, '$.company_size_row_id')        AS company_size,
+      JSON_VALUE(co.data, '$.company_valuation')          AS valuation,
+      JSON_VALUE(co.data, '$.claim_status')               AS claim_status,
+      JSON_VALUE(co.data, '$.approval_status')            AS approval_status,
+      JSON_VALUE(co.data, '$.active_status')              AS active_status,
+      CAST(JSON_VALUE(co.data, '$.view_counts')   AS INT64) AS view_count,
+      CAST(JSON_VALUE(co.data, '$.profile_score') AS INT64) AS profile_score,
+      -- IMPLEMENTED CREATED BY LOGIC
+      CASE 
+        WHEN JSON_VALUE(co.data, '$.claim_status') != '0' THEN
+          CASE 
+            WHEN JSON_VALUE(sa.data, '$.full_name') IS NOT NULL THEN CONCAT(JSON_VALUE(sa.data, '$.full_name'), ' (Sub Admin)')
+            WHEN JSON_VALUE(pro_c.data, '$.full_name') IS NOT NULL THEN CONCAT(JSON_VALUE(pro_c.data, '$.full_name'), ' (User)')
+            ELSE 'Admin'
+          END
+        ELSE 
+          CASE 
+            WHEN JSON_VALUE(pro_c.data, '$.full_name') IS NOT NULL THEN CONCAT(JSON_VALUE(pro_c.data, '$.full_name'), ' (User)')
+            ELSE '-'
+          END
+      END AS created_by_name,
 
-      -- Categories
-      JSON_VALUE(bm.data, '$.business_name') AS primary_category,
-      (SELECT STRING_AGG(id, ', ') FROM UNNEST(JSON_VALUE_ARRAY(co.data, '$.business_model_id')) AS id) AS secondary_categories,
-
-      -- Descriptions
-      JSON_VALUE(co.data, '$.about_company') AS company_description,
-      JSON_VALUE(co.data, '$.describe_in_one_line') AS tagline,
-
-      // Correct BigQuery JSON path syntax for keys with special characters
-      SAFE_CAST(JSON_VALUE(co.data, '$.created_date_n_time."$date"') AS INT64) AS created_at_ms,
-      SAFE_CAST(JSON_VALUE(co.data, '$.updated_date_n_time."$date"') AS INT64) AS updated_at_ms,
-      SAFE_CAST(JSON_VALUE(co.data, '$.established_in."$date"') AS INT64) AS launch_date_ms,
-
-      -- Contact & Location
-      JSON_VALUE(co.data, '$.contact_number') AS contact_number,
-      JSON_VALUE(co.data, '$.company_email_id') AS email,
-      JSON_VALUE(co.data, '$.company_location') AS location,
-      JSON_VALUE(ct.data, '$.country_name') AS country,
-      JSON_VALUE(co.data, '$.city') AS city,
-      JSON_VALUE(co.data, '$.state') AS state,
-      JSON_VALUE(co.data, '$.headquarter') AS address,
-      JSON_VALUE(co.data, '$.latitude') AS latitude,
-      JSON_VALUE(co.data, '$.longitude') AS longitude,
-      
-      -- Specialized Info
-      JSON_VALUE(co.data, '$.nft_wallet_address') AS nft_wallet_address,
-      JSON_VALUE(co.data, '$.stock_symbol') AS stock_symbol,
-      JSON_VALUE(co.data, '$.cmc_id') AS cmc_id,
-      JSON_VALUE(co.data, '$.coingecko_id') AS coingecko_id,
-
-      -- Creator Logic
+      -- IMPLEMENTED UPDATED BY LOGIC
+      CASE 
+        WHEN JSON_VALUE(co.data, '$.updated_by') = 'subadmin' THEN CONCAT(JSON_VALUE(sa_up.data, '$.full_name'), ' (Sub Admin)')
+        WHEN JSON_VALUE(co.data, '$.updated_by') = 'user' THEN CONCAT(COALESCE(JSON_VALUE(sa_up.data, '$.full_name'), 'User'), ' (User)')
+        WHEN JSON_VALUE(co.data, '$.updated_by') = 'admin' THEN 'Admin'
+        ELSE JSON_VALUE(sa_up.data, '$.full_name')
+      END AS updated_by_name,
+      JSON_VALUE(co.data, '$.created_by_type')            AS created_by_type,
       CASE
         WHEN JSON_VALUE(co.data, '$.created_by_type') = '1' THEN JSON_VALUE(pro_c.data, '$.full_name')
         WHEN JSON_VALUE(co.data, '$.created_by_type') = '2' THEN JSON_VALUE(adm.data, '$.full_name')
@@ -97,50 +136,29 @@ export async function GET(req: NextRequest) {
         WHEN JSON_VALUE(co.data, '$.created_by_type') = '2' THEN JSON_VALUE(adm.data, '$.email_id')
         ELSE JSON_VALUE(sa.data, '$.email_id')
       END AS created_by_email,
-
-      -- Updated By Logic
-      JSON_VALUE(co.data, '$.updated_by') AS updated_by_role,
-      JSON_VALUE(sa_up.data, '$.full_name') AS updated_by_name,
-
-      -- Status & Stats
-      JSON_VALUE(co.data, '$.claim_status') AS claim_status,
-      JSON_VALUE(co.data, '$.approval_status') AS approval_status,
-      JSON_VALUE(co.data, '$.active_status') AS active_status,
-      CAST(JSON_VALUE(co.data, '$.view_counts') AS INT64) AS view_count,
-      CAST(JSON_VALUE(co.data, '$.profile_score') AS INT64) AS total_profile_score,
-
-      -- Scores
-      CAST(JSON_VALUE(co.data, '$.basic_details_score') AS INT64) AS score_basic,
-      CAST(JSON_VALUE(co.data, '$.seo_details_score') AS INT64) AS score_seo,
-      CAST(JSON_VALUE(co.data, '$.social_media_score') AS INT64) AS score_social,
-      CAST(JSON_VALUE(co.data, '$.team_detail_score') AS INT64) AS score_team,
-      CAST(JSON_VALUE(co.data, '$.owned_product_score') AS INT64) AS score_products,
-      CAST(JSON_VALUE(co.data, '$.funding_score') AS INT64) AS score_funding,
-      CAST(JSON_VALUE(co.data, '$.investment_score') AS INT64) AS score_investments,
-      CAST(JSON_VALUE(co.data, '$.revenue_score_score') AS INT64) AS score_revenue,
-      CAST(JSON_VALUE(co.data, '$.faq_score') AS INT64) AS score_faq,
+      JSON_VALUE(co.data, '$.updated_by')                 AS updated_by_role,
+      JSON_VALUE(sa_up.data, '$.full_name')               AS updated_by_name,
+      CAST(JSON_VALUE(co.data, '$.basic_details_score')  AS INT64) AS score_basic,
+      CAST(JSON_VALUE(co.data, '$.seo_details_score')    AS INT64) AS score_seo,
+      CAST(JSON_VALUE(co.data, '$.social_media_score')   AS INT64) AS score_social,
+      CAST(JSON_VALUE(co.data, '$.team_detail_score')    AS INT64) AS score_team,
+      CAST(JSON_VALUE(co.data, '$.owned_product_score')  AS INT64) AS score_products,
+      CAST(JSON_VALUE(co.data, '$.funding_score')        AS INT64) AS score_funding,
+      CAST(JSON_VALUE(co.data, '$.investment_score')     AS INT64) AS score_investments,
+      CAST(JSON_VALUE(co.data, '$.revenue_score_score')  AS INT64) AS score_revenue,
+      CAST(JSON_VALUE(co.data, '$.faq_score')            AS INT64) AS score_faq,
       CAST(JSON_VALUE(co.data, '$.holding_crypto_score') AS INT64) AS score_holdings,
-      CAST(JSON_VALUE(co.data, '$.job_opening_score') AS INT64) AS score_jobs
-
+      CAST(JSON_VALUE(co.data, '$.job_opening_score')    AS INT64) AS score_jobs
     FROM \`${T_CO}\` co
-    LEFT JOIN \`${T_COUNTRIES}\` ct ON JSON_VALUE(ct.data, '$._id') = JSON_VALUE(co.data, '$.country_id')
-    LEFT JOIN \`${T_BIZ_MDL}\` bm ON JSON_VALUE(bm.data, '$._id') = JSON_VALUE(co.data, '$.main_business_model_id')
-    LEFT JOIN \`${T_SUB_ADM}\` sa ON JSON_VALUE(sa.data, '$._id') = JSON_VALUE(co.data, '$.sub_admin_row_id')
-    
-    -- FIXED: Added Join for sa_up
-    LEFT JOIN \`${T_SUB_ADM}\` sa_up ON JSON_VALUE(sa_up.data, '$._id') = JSON_VALUE(co.data, '$.updated_by_row_id')
-
-    LEFT JOIN \`${T_PROS}\` pro_c
-      ON JSON_VALUE(co.data, '$.created_by_type') = '1'
-      AND JSON_VALUE(pro_c.data, '$._id') = JSON_VALUE(co.data, '$.user_row_id')
-    LEFT JOIN \`${T_ADMINS}\` adm
-      ON JSON_VALUE(co.data, '$.created_by_type') = '2'
-      AND JSON_VALUE(adm.data, '$._id') = JSON_VALUE(co.data, '$.created_admin_row_id')
-    WHERE JSON_VALUE(co.data, '$._id') = '${cid}'
+    LEFT JOIN \`${T_COUNTRIES}\` ct     ON JSON_VALUE(ct.data, '$._id')     = JSON_VALUE(co.data, '$.country_id')
+    LEFT JOIN \`${T_BIZ_MDL}\`   bm     ON JSON_VALUE(bm.data, '$._id')     = JSON_VALUE(co.data, '$.main_business_model_id')
+    LEFT JOIN \`${T_SUB_ADM}\`   sa     ON JSON_VALUE(sa.data, '$._id')     = JSON_VALUE(co.data, '$.sub_admin_row_id')
+    LEFT JOIN \`${T_SUB_ADM}\`   sa_up  ON JSON_VALUE(sa_up.data, '$._id')  = JSON_VALUE(co.data, '$.updated_by_row_id')
+    LEFT JOIN \`${T_PROS}\`      pro_c  ON JSON_VALUE(pro_c.data, '$._id')  = JSON_VALUE(co.data, '$.user_row_id')
+    LEFT JOIN \`${T_ADMINS}\`    adm    ON JSON_VALUE(adm.data, '$._id')    = JSON_VALUE(co.data, '$.created_admin_row_id')
+    WHERE CAST(co._id AS STRING) = '${cid}'
     LIMIT 1
   `)
-
-  
 
   if (!coRows.length)
     return NextResponse.json({ success: false, error: `Company not found: ${company_id}` }, { status: 404 })
@@ -153,35 +171,30 @@ export async function GET(req: NextRequest) {
     // 0 — Team
     bqQuery<Record<string, string>>(`
       SELECT
-        JSON_VALUE(we.data, '$._id')               AS member_id,
-        JSON_VALUE(we.data, '$.user_row_id')        AS user_row_id,
-        JSON_VALUE(we.data, '$.user_account_type')  AS user_account_type,
+        JSON_VALUE(we.data, '$._id') AS member_id,
+        JSON_VALUE(we.data, '$.user_row_id') AS user_row_id,
+        JSON_VALUE(we.data, '$.user_account_type') AS user_account_type,
         COALESCE(NULLIF(JSON_VALUE(we.data, '$.responsibilities'),''), JSON_VALUE(we.data, '$.position')) AS role,
-        JSON_VALUE(we.data, '$.designation_type')   AS designation_type,
-        JSON_VALUE(we.data, '$.till_date_status')   AS till_date_status,
+        JSON_VALUE(we.data, '$.designation_type') AS designation_type,
+        JSON_VALUE(we.data, '$.till_date_status') AS till_date_status,
         CASE
-          WHEN JSON_VALUE(we.data, '$.user_account_type') = '1'
-            THEN JSON_VALUE(p.data, '$.full_name')
-          WHEN JSON_VALUE(we.data, '$.user_account_type') = '2'
-            THEN JSON_VALUE(mr.data, '$.full_name')
+          WHEN JSON_VALUE(we.data, '$.user_account_type') = '1' THEN JSON_VALUE(p.data, '$.full_name')
+          WHEN JSON_VALUE(we.data, '$.user_account_type') = '2' THEN JSON_VALUE(mr.data, '$.full_name')
         END AS full_name,
         CASE
           WHEN JSON_VALUE(pi.data, '$.profile_image') IS NOT NULL
-            THEN CONCAT('https://image.coinpedia.org/app_uploads/profile/', JSON_VALUE(pi.data, '$.profile_image'))
+          THEN CONCAT('https://image.coinpedia.org/app_uploads/profile/', JSON_VALUE(pi.data, '$.profile_image'))
           ELSE NULL
         END AS profile_image,
-        JSON_VALUE(sl.data, '$.linkedin')        AS linkedin_url,
-        JSON_VALUE(sl.data, '$.twitter')         AS twitter_url,
-        JSON_VALUE(sl.data, '$.instagram')       AS instagram_url,
-        JSON_VALUE(sl.data, '$.facebook')        AS facebook_url,
+        JSON_VALUE(sl.data, '$.linkedin') AS linkedin_url,
+        JSON_VALUE(sl.data, '$.twitter') AS twitter_url,
+        JSON_VALUE(sl.data, '$.instagram') AS instagram_url,
+        JSON_VALUE(sl.data, '$.facebook') AS facebook_url,
         JSON_VALUE(sl.data, '$.youtube_channel') AS youtube_url,
-        JSON_VALUE(sl.data, '$.telegram')        AS telegram_url,
-        JSON_VALUE(sl.data, '$.medium')          AS medium_url,
-        JSON_VALUE(sl.data, '$.video_link')      AS video_link,
-        COALESCE(
-          JSON_VALUE(p.data, '$.user_name'),
-          JSON_VALUE(p.data, '$.username')
-        )                                        AS pro_username
+        JSON_VALUE(sl.data, '$.telegram') AS telegram_url,
+        JSON_VALUE(sl.data, '$.medium') AS medium_url,
+        JSON_VALUE(sl.data, '$.video_link') AS video_link,
+        COALESCE(JSON_VALUE(p.data, '$.user_name'), JSON_VALUE(p.data, '$.username')) AS pro_username
       FROM \`${T_WE}\` we
       LEFT JOIN \`${T_PROS}\` p
         ON JSON_VALUE(we.data, '$.user_account_type') = '1'
@@ -189,40 +202,30 @@ export async function GET(req: NextRequest) {
       LEFT JOIN \`${T_MR}\` mr
         ON JSON_VALUE(we.data, '$.user_account_type') = '2'
         AND JSON_VALUE(we.data, '$.user_row_id') = JSON_VALUE(mr.data, '$._id')
-      LEFT JOIN \`${T_PI}\` pi
-        ON JSON_VALUE(we.data, '$.user_row_id') = JSON_VALUE(pi.data, '$.user_row_id')
-      LEFT JOIN \`${T_SL}\` sl
-        ON JSON_VALUE(we.data, '$.user_row_id') = JSON_VALUE(sl.data, '$.user_row_id')
+      LEFT JOIN \`${T_PI}\` pi ON JSON_VALUE(we.data, '$.user_row_id') = JSON_VALUE(pi.data, '$.user_row_id')
+      LEFT JOIN \`${T_SL}\` sl ON JSON_VALUE(we.data, '$.user_row_id') = JSON_VALUE(sl.data, '$.user_row_id')
       WHERE JSON_VALUE(we.data, '$.company_row_id') = '${cid}'
         AND JSON_VALUE(we.data, '$.verified_status') = 'true'
         AND JSON_VALUE(we.data, '$.public_view') = 'true'
         AND (
           JSON_VALUE(we.data, '$.user_account_type') = '2'
-          OR (
-            JSON_VALUE(we.data, '$.user_account_type') = '1'
-            AND JSON_VALUE(p.data, '$.login_status') = '1'
-          )
+          OR (JSON_VALUE(we.data, '$.user_account_type') = '1' AND JSON_VALUE(p.data, '$.login_status') = '1')
         )
       ORDER BY
         CASE JSON_VALUE(we.data, '$.designation_type')
           WHEN '2' THEN 1
           WHEN '1' THEN 2
           ELSE 3 END,
-        CASE
-          WHEN JSON_VALUE(we.data, '$.user_account_type') = '1'
-            THEN JSON_VALUE(p.data, '$.full_name')
-          WHEN JSON_VALUE(we.data, '$.user_account_type') = '2'
-            THEN JSON_VALUE(mr.data, '$.full_name')
-        END
+        full_name
       LIMIT 100
-    `),
+`),
 
     // 1 — Funding rounds received
     bqQuery<Record<string, string>>(`
       SELECT
-        SAFE.JSON_VALUE(fil.data,'$._id')           AS round_id,
-        SAFE.JSON_VALUE(fil.data,'$.amount')         AS amount,
-        SAFE.JSON_VALUE(cat.data,'$.category_name')  AS funding_type,
+        SAFE.JSON_VALUE(fil.data,'$._id') AS round_id,
+        SAFE.JSON_VALUE(fil.data,'$.amount') AS amount,
+        SAFE.JSON_VALUE(cat.data,'$.category_name') AS funding_type,
         FORMAT_TIMESTAMP('%Y-%m-%d', COALESCE(
           TIMESTAMP_MILLIS(SAFE_CAST(SAFE.JSON_VALUE(fil.data,'$.announcement_date."$date"') AS INT64)),
           TIMESTAMP_MILLIS(SAFE_CAST(SAFE.JSON_VALUE(fil.data,'$.announcement_date') AS INT64))
@@ -259,36 +262,108 @@ export async function GET(req: NextRequest) {
         AND SAFE.JSON_VALUE(fil.data,'$.verified_status') = '1'
       ORDER BY funding_date DESC
       LIMIT 50
-    `),
+`),
 
     // 2 — Products
     bqQuery<Record<string, string>>(`
-      SELECT
-        JSON_VALUE(data,'$._id')                 AS product_id,
-        JSON_VALUE(data,'$.product_name')        AS product_name,
-        JSON_VALUE(data,'$.product_description') AS product_description,
-        JSON_VALUE(data,'$.product_url')         AS product_url,
-        JSON_VALUE(data,'$.product_category')    AS product_category
-      FROM \`${T_PRODUCTS}\`
-      WHERE JSON_VALUE(data,'$.company_id') = '${cid}'
-      ORDER BY JSON_VALUE(data,'$.product_name')
-      LIMIT 50
+      WITH company_products AS (
+        SELECT
+          JSON_VALUE(data, '$._id') AS product_id,
+          JSON_VALUE(data, '$.company_row_id') AS company_id,
+          JSON_VALUE(data, '$.product_type') AS product_type,
+          JSON_VALUE(data, '$.product_row_id') AS ref_id
+        FROM \`${T_COMPANY_PRODUCTS}\`
+        WHERE JSON_VALUE(data, '$.company_row_id') = '${cid}'
+      ),
+
+      tokens AS (
+        SELECT
+          product_id,
+          'token' AS type,
+          COALESCE(
+            JSON_VALUE(t.data, '$.token_name'),
+            JSON_VALUE(tm.data, '$.token_name')
+          ) AS name,
+          COALESCE(
+            JSON_VALUE(t.data, '$.symbol'),
+            JSON_VALUE(tm.data, '$.symbol')
+          ) AS symbol,
+          COALESCE(
+            JSON_VALUE(t.data, '$.network_name'),
+            JSON_VALUE(tm.data, '$.network_name')
+          ) AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_TOKENS}\` t
+          ON cp.ref_id = JSON_VALUE(t.data, '$._id')
+        LEFT JOIN \`${T_TOKENS_MANUAL}\` tm
+          ON cp.ref_id = JSON_VALUE(tm.data, '$._id')
+        WHERE cp.product_type = '1'
+      ),
+
+      chains AS (
+        SELECT
+          product_id,
+          'chain' AS type,
+          COALESCE(
+            JSON_VALUE(c.data, '$.chain_name'),
+            JSON_VALUE(cm.data, '$.chain_name')
+          ) AS name,
+          COALESCE(
+            JSON_VALUE(c.data, '$.chain_symbol'),
+            JSON_VALUE(cm.data, '$.chain_symbol')
+          ) AS symbol,
+          NULL AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_CHAINS}\` c
+          ON cp.ref_id = JSON_VALUE(c.data, '$._id')
+        LEFT JOIN \`${T_CHAINS_MANUAL}\` cm
+          ON cp.ref_id = JSON_VALUE(cm.data, '$._id')
+        WHERE cp.product_type = '2'
+      ),
+
+      exchanges AS (
+        SELECT
+          product_id,
+          'exchange' AS type,
+          COALESCE(
+            JSON_VALUE(e.data, '$.exchange_name'),
+            JSON_VALUE(em.data, '$.exchange_name')
+          ) AS name,
+          NULL AS symbol,
+          COALESCE(
+            JSON_VALUE(e.data, '$.exchange_link'),
+            JSON_VALUE(em.data, '$.exchange_link')
+          ) AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_EXCHANGES}\` e
+          ON cp.ref_id = JSON_VALUE(e.data, '$._id')
+        LEFT JOIN \`${T_EXCHANGES_MANUAL}\` em
+          ON cp.ref_id = JSON_VALUE(em.data, '$._id')
+        WHERE cp.product_type = '3'
+      )
+
+      SELECT * FROM tokens
+      UNION ALL
+      SELECT * FROM chains
+      UNION ALL
+      SELECT * FROM exchanges
     `),
 
     // 3 — Social links
     bqQuery<Record<string, string>>(`
       SELECT
-        JSON_VALUE(data,'$.twitter_url')   AS twitter_url,
-        JSON_VALUE(data,'$.linkedin_url')  AS linkedin_url,
-        JSON_VALUE(data,'$.github_url')    AS github_url,
-        JSON_VALUE(data,'$.telegram_url')  AS telegram_url,
-        JSON_VALUE(data,'$.discord_url')   AS discord_url,
-        JSON_VALUE(data,'$.reddit_url')    AS reddit_url,
-        JSON_VALUE(data,'$.youtube_url')   AS youtube_url,
-        JSON_VALUE(data,'$.medium_url')    AS medium_url,
-        JSON_VALUE(data,'$.instagram_url') AS instagram_url
+        JSON_VALUE(data, '$.twitter')         AS twitter_url,
+        JSON_VALUE(data, '$.linkedin')        AS linkedin_url,
+        JSON_VALUE(data, '$.facebook')        AS facebook_url,
+        JSON_VALUE(data, '$.instagram')       AS instagram_url,
+        JSON_VALUE(data, '$.telegram')        AS telegram_url,
+        JSON_VALUE(data, '$.medium')          AS medium_url,
+        JSON_VALUE(data, '$.reddit')          AS reddit_url,
+        JSON_VALUE(data, '$.youtube_channel') AS youtube_url,
+        JSON_VALUE(data, '$.video_link')      AS video_link,
+        JSON_VALUE(data, '$.feed_url')      AS feed_url
       FROM \`${T_SOCIAL}\`
-      WHERE JSON_VALUE(data,'$.company_id') = '${cid}'
+      WHERE JSON_VALUE(data, '$.company_row_id') = '${cid}'
       LIMIT 1
     `),
 
@@ -374,17 +449,220 @@ export async function GET(req: NextRequest) {
       ORDER BY invested_on DESC
       LIMIT 50
     `),
+
+    // 8 — Regulatory details
+    bqQuery<Record<string, string>>(`
+      SELECT
+        JSON_VALUE(reg_item, '$.country_id')            AS country_id,
+        JSON_VALUE(ct.data,  '$.country_name')          AS country_name,
+        JSON_VALUE(reg_item, '$.regulatory_bodies_ids') AS regulatory_body_id,
+        JSON_VALUE(body.data,'$.regulatory_bodies_name') AS regulatory_body_name,
+        JSON_VALUE(reg_item, '$.regulatory_types_id')   AS regulatory_type_id,
+        JSON_VALUE(rtype.data,'$.regulator_type_name')  AS regulatory_type_name
+      FROM \`${T_CO}\` co
+      LEFT JOIN UNNEST(JSON_QUERY_ARRAY(co.data, '$.regularities_details')) AS reg_item
+      LEFT JOIN \`${T_COUNTRIES}\` ct
+        ON JSON_VALUE(ct.data, '$._id') = JSON_VALUE(reg_item, '$.country_id')
+      LEFT JOIN \`${T_EXCHANGE_BODIES}\` body
+        ON JSON_VALUE(body.data, '$._id') = JSON_VALUE(reg_item, '$.regulatory_bodies_ids')
+      LEFT JOIN \`${T_REG_TYPES}\` rtype
+        ON JSON_VALUE(rtype.data, '$._id') = JSON_VALUE(reg_item, '$.regulatory_types_id')
+      WHERE JSON_VALUE(co.data, '$._id') = '${cid}'
+    `),
+
+    // 9 — FAQs
+    bqQuery<Record<string, string>>(`
+      SELECT
+        JSON_VALUE(data, '$._id')            AS faq_id,
+        JSON_VALUE(data, '$.faq_question')   AS question,
+        JSON_VALUE(data, '$.faq_answer')     AS answer
+      FROM \`${T_FAQ}\`
+      WHERE JSON_VALUE(data, '$.company_row_id') = '${cid}'
+      ORDER BY CAST(JSON_VALUE(data, '$._id') AS INT64) ASC
+      LIMIT 50
+    `),
+
+    // 10 — Sponsored Events
+    bqQuery<Record<string, string>>(`
+      SELECT
+        JSON_VALUE(e.data, '$._id')                       AS event_id,
+        JSON_VALUE(e.data, '$.event_title')                AS event_name,
+        JSON_VALUE(e.data, '$.event_url')                 AS event_url,
+        JSON_VALUE(e.data, '$.event_description')         AS event_description,
+        JSON_VALUE(e.data, '$.event_image')          AS event_logo,
+        JSON_VALUE(e.data, '$.event_city')                AS event_location,
+        JSON_VALUE(e.data, '$.event_type')                AS event_type,
+        SAFE_CAST(JSON_VALUE(e.data, '$.start_date."$date"') AS INT64) AS start_date_ms,
+        SAFE_CAST(JSON_VALUE(e.data, '$.end_date."$date"')   AS INT64) AS end_date_ms,
+        JSON_VALUE(spd.data, '$.sponsor_partner_type')    AS sponsor_type
+      FROM \`${T_EVT_SPD}\` spd
+      INNER JOIN \`${T_EVENTS}\` e
+        ON JSON_VALUE(spd.data, '$.event_row_id') = JSON_VALUE(e.data, '$._id')
+      WHERE JSON_VALUE(spd.data, '$.account_type') = '2'
+        AND JSON_VALUE(spd.data, '$.user_company_row_id') = '${cid}'
+        AND JSON_VALUE(spd.data, '$.registered_type') = '1'
+        AND JSON_VALUE(spd.data, '$.sponsor_partner_type') = '1'
+        AND JSON_VALUE(e.data, '$.active_status') IN ('1', 'true')
+        AND JSON_VALUE(e.data, '$.approval_status') IN ('1', 'true')
+      ORDER BY start_date_ms DESC
+      LIMIT 50
+    `),
+
+    // 11 — Partner Events (sponsor_partner_type = 2)
+    bqQuery<Record<string, string>>(`
+      SELECT
+        JSON_VALUE(e.data, '$._id')                       AS event_id,
+        JSON_VALUE(e.data, '$.event_title')                AS event_name,
+        JSON_VALUE(e.data, '$.event_url')                 AS event_url,
+        JSON_VALUE(e.data, '$.event_description')         AS event_description,
+        JSON_VALUE(e.data, '$.event_image')          AS event_logo,
+        JSON_VALUE(e.data, '$.event_city')                AS event_location,
+        JSON_VALUE(e.data, '$.event_type')                AS event_type,
+        SAFE_CAST(JSON_VALUE(e.data, '$.start_date."$date"') AS INT64) AS start_date_ms,
+        SAFE_CAST(JSON_VALUE(e.data, '$.end_date."$date"')   AS INT64) AS end_date_ms,
+        JSON_VALUE(spd.data, '$.sponsor_partner_type')    AS sponsor_type
+      FROM \`${T_EVT_SPD}\` spd
+      INNER JOIN \`${T_EVENTS}\` e
+        ON JSON_VALUE(spd.data, '$.event_row_id') = JSON_VALUE(e.data, '$._id')
+      WHERE JSON_VALUE(spd.data, '$.account_type') = '2'
+        AND JSON_VALUE(spd.data, '$.user_company_row_id') = '${cid}'
+        AND JSON_VALUE(spd.data, '$.registered_type') = '1'
+        AND JSON_VALUE(spd.data, '$.sponsor_partner_type') = '2'
+        AND JSON_VALUE(e.data, '$.active_status') IN ('1', 'true')
+        AND JSON_VALUE(e.data, '$.approval_status') IN ('1', 'true')
+      ORDER BY start_date_ms DESC
+      LIMIT 50
+    `),
+
+    // 12 — Hosted Events (company as host, list_event_type 2 or 3)
+    bqQuery<Record<string, string>>(`
+      SELECT
+        CAST(ev._id AS STRING)                                        AS event_id,
+        JSON_VALUE(ev.data, '$.event_title')                          AS event_name,
+        JSON_VALUE(ev.data, '$.event_url')                            AS event_url,
+        CASE
+          WHEN JSON_VALUE(ev.data, '$.event_image') IS NOT NULL
+            AND JSON_VALUE(ev.data, '$.event_image') != ''
+          THEN JSON_VALUE(ev.data, '$.event_image')
+          ELSE NULL
+        END                                                            AS event_logo,
+        JSON_VALUE(ev.data, '$.event_city')                           AS event_location,
+        JSON_VALUE(ev.data, '$.event_state')                          AS event_state,
+        JSON_VALUE(ev.data, '$.event_venue')                          AS event_venue,
+        JSON_VALUE(ev.data, '$.event_description')                    AS event_description,
+        JSON_VALUE(ev.data, '$.event_link')                           AS event_type,
+        SAFE_CAST(JSON_VALUE(ev.data, '$.start_date."$date"') AS INT64) AS start_date_ms,
+        SAFE_CAST(JSON_VALUE(ev.data, '$.end_date."$date"')   AS INT64) AS end_date_ms,
+        CAST(JSON_VALUE(ev.data, '$.view_counts') AS INT64)           AS view_count,
+        JSON_VALUE(ev.data, '$.event_link')                           AS external_link
+      FROM \`${T_EVENTS}\` ev
+      WHERE JSON_VALUE(ev.data, '$.active_status')   = '1'
+        AND JSON_VALUE(ev.data, '$.approval_status') = '1'
+        AND JSON_VALUE(ev.data, '$.company_row_id')  = '${cid}'
+        AND JSON_VALUE(ev.data, '$.list_event_type') IN ('2', '3')
+      ORDER BY start_date_ms DESC
+      LIMIT 50
+    `),
+    // 13 — Holdings (tokens/chains/exchanges, registered + manual)
+    bqQuery<Record<string, string>>(`
+      WITH company_products AS (
+        SELECT
+          JSON_VALUE(data, '$._id') AS product_id,
+          JSON_VALUE(data, '$.company_row_id') AS company_id,
+          JSON_VALUE(data, '$.product_type') AS product_type,
+          JSON_VALUE(data, '$.product_row_id') AS ref_id
+        FROM \`${T_COMPANY_PRODUCTS}\`
+        WHERE JSON_VALUE(data, '$.company_row_id') = '${cid}'
+      ),
+
+      tokens AS (
+        SELECT
+          product_id,
+          'token' AS type,
+          COALESCE(
+            JSON_VALUE(t.data, '$.token_name'),
+            JSON_VALUE(tm.data, '$.token_name')
+          ) AS name,
+          COALESCE(
+            JSON_VALUE(t.data, '$.symbol'),
+            JSON_VALUE(tm.data, '$.symbol')
+          ) AS symbol,
+          COALESCE(
+            JSON_VALUE(t.data, '$.network_name'),
+            JSON_VALUE(tm.data, '$.network_name')
+          ) AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_TOKENS}\` t
+          ON cp.ref_id = JSON_VALUE(t.data, '$._id')
+        LEFT JOIN \`${T_TOKENS_MANUAL}\` tm
+          ON cp.ref_id = JSON_VALUE(tm.data, '$._id')
+        WHERE cp.product_type = '1'
+      ),
+
+      chains AS (
+        SELECT
+          product_id,
+          'chain' AS type,
+          COALESCE(
+            JSON_VALUE(c.data, '$.chain_name'),
+            JSON_VALUE(cm.data, '$.chain_name')
+          ) AS name,
+          COALESCE(
+            JSON_VALUE(c.data, '$.chain_symbol'),
+            JSON_VALUE(cm.data, '$.chain_symbol')
+          ) AS symbol,
+          NULL AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_CHAINS}\` c
+          ON cp.ref_id = JSON_VALUE(c.data, '$._id')
+        LEFT JOIN \`${T_CHAINS_MANUAL}\` cm
+          ON cp.ref_id = JSON_VALUE(cm.data, '$._id')
+        WHERE cp.product_type = '2'
+      ),
+
+      exchanges AS (
+        SELECT
+          product_id,
+          'exchange' AS type,
+          COALESCE(
+            JSON_VALUE(e.data, '$.exchange_name'),
+            JSON_VALUE(em.data, '$.exchange_name')
+          ) AS name,
+          NULL AS symbol,
+          COALESCE(
+            JSON_VALUE(e.data, '$.exchange_link'),
+            JSON_VALUE(em.data, '$.exchange_link')
+          ) AS network
+        FROM company_products cp
+        LEFT JOIN \`${T_EXCHANGES}\` e
+          ON cp.ref_id = JSON_VALUE(e.data, '$._id')
+        LEFT JOIN \`${T_EXCHANGES_MANUAL}\` em
+          ON cp.ref_id = JSON_VALUE(em.data, '$._id')
+        WHERE cp.product_type = '3'
+      )
+
+      SELECT * FROM tokens
+      UNION ALL
+      SELECT * FROM chains
+      UNION ALL
+      SELECT * FROM exchanges
+    `)
   ])
 
   const teamRows = safeRows(results[0])
   const fundRows = safeRows(results[1])
-  const prodRows = safeRows(results[2])
+  const productRows = safeRows(results[2])
   const socialRows = safeRows(results[3])
   const enrichRows = safeRows(results[4])
   const revenueRows = safeRows(results[5])
   const followersRows = safeRows(results[6])
   const investRows = safeRows(results[7])
-
+  const regulatoryRows = safeRows(results[8])
+  const faqRows = safeRows(results[9])
+  const eventRows = safeRows(results[10], 'events')
+  const partnerEventRows = safeRows(results[11], 'partner_events')
+  const hostedEventRows = safeRows(results[12], 'hosted_events')
+  const holdingsRows = safeRows(results[13], 'holdings')
   const social = socialRows[0] || {}
 
   // Group enrichment by run_id
@@ -419,6 +697,7 @@ export async function GET(req: NextRequest) {
       profile_image: co.profile_image || null,
       live_url: `https://coinpedia.org/company/${co.company_url || ''}/`,
       primary_category: co.primary_category || null,
+      secondary_categories: co.secondary_categories || null,
       company_description: co.company_description
         ? co.company_description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
         : null,
@@ -442,7 +721,6 @@ export async function GET(req: NextRequest) {
       registration_country: co.country || null,
       company_size: sizeMap[co.company_size] || co.company_size || null,
       email: co.email?.trim() || null,
-      phone: co.phone?.trim() || null,
       valuation: co.valuation ? parseFloat(co.valuation) : null,
       valuation_fmt: co.valuation ? (
         parseFloat(co.valuation) >= 1e9 ? `$${(parseFloat(co.valuation) / 1e9).toFixed(1)}B`
@@ -458,6 +736,9 @@ export async function GET(req: NextRequest) {
       stock_symbol: co.stock_symbol || null,
       cmc_id: co.cmc_id || null,
       coingecko_id: co.coingecko_id || null,
+      nft_wallet_address: co.nft_wallet_address || null,
+      contact_number: co.contact_number?.trim() || null,
+      updated_by: co.updated_by_name || null,
       score_breakdown: {
         total: Number(co.profile_score) || 0,
         basic: Number(co.score_basic) || 0,
@@ -516,7 +797,12 @@ export async function GET(req: NextRequest) {
       invested_on: r.invested_on || '—',
     })),
 
-    products: prodRows,
+    products: {
+      tokens,
+      chains,
+      exchanges,
+    },
+
     social,
 
     revenue: revenueRows.map(r => {
@@ -533,6 +819,65 @@ export async function GET(req: NextRequest) {
       }
     }),
 
+    events: eventRows.map(r => ({
+      event_id: String(r.event_id),
+      event_name: r.event_name || '—',
+      event_url: r.event_url || null,
+      event_description: r.event_description || null,
+      event_logo: r.event_logo
+        ? `https://image.coinpedia.org/app_uploads/events/${r.event_logo}`
+        : null,
+      event_location: r.event_location || null,
+      event_type: r.event_type || null,
+      start_date: r.start_date_ms ? new Date(parseInt(r.start_date_ms)).toISOString().substring(0, 10) : null,
+      end_date: r.end_date_ms ? new Date(parseInt(r.end_date_ms)).toISOString().substring(0, 10) : null,
+      sponsor_type: r.sponsor_type || null,
+    })),
+
+    partner_events: partnerEventRows.map(r => ({
+      event_id: r.event_id || '—',
+      event_name: r.event_name || '—',
+      event_url: r.event_url || null,
+      event_description: r.event_description || null,
+      event_logo: r.event_logo
+        ? `https://image.coinpedia.org/app_uploads/events/${r.event_logo}`
+        : null,
+      event_location: r.event_location || null,
+      event_type: r.event_type || null,
+      start_date: r.start_date_ms ? new Date(parseInt(r.start_date_ms)).toISOString().substring(0, 10) : null,
+      end_date: r.end_date_ms ? new Date(parseInt(r.end_date_ms)).toISOString().substring(0, 10) : null,
+    })),
+
+    hosted_events: hostedEventRows.map(r => ({
+      event_id: r.event_id || '—',
+      event_name: r.event_name || '—',
+      event_url: r.event_url || null,
+      event_description: r.event_description || null,
+      event_logo: r.event_logo
+        ? `https://image.coinpedia.org/app_uploads/events/${r.event_logo}`
+        : null,
+      event_location: r.event_location || null,
+      event_state: r.event_state || null,
+      event_venue: r.event_venue || null,
+      external_link: r.external_link || null,
+      view_count: r.view_count ? parseInt(r.view_count) : 0,
+      start_date: r.start_date_ms ? new Date(parseInt(r.start_date_ms)).toISOString().substring(0, 10) : null,
+      end_date: r.end_date_ms ? new Date(parseInt(r.end_date_ms)).toISOString().substring(0, 10) : null,
+    })),
+
+    holdings: productRows.map(r => {
+      const typeMap: Record<string, string> = { '1': 'Token', '2': 'Chain', '3': 'Exchange' }
+      const regMap: Record<string, string> = { '1': 'Registered', '2': 'Manual' }
+      return {
+        entry_id: r.entry_id,
+        product_type: typeMap[r.product_type] || r.product_type,
+        register_type: regMap[r.register_type] || r.register_type,
+        product_name: r.product_name || '—',
+        product_logo: r.product_logo || null,
+        product_slug: r.product_slug || null,
+      }
+    }),
+
     enrichment: {
       history: enrichHistory,
       total_rows: enrichRows.length,
@@ -541,5 +886,19 @@ export async function GET(req: NextRequest) {
       merged_count: enrichRows.filter(r => r.status === 'merged').length,
       rejected_count: enrichRows.filter(r => r.status === 'rejected').length,
     },
+    regulatory: regulatoryRows.map(r => ({
+      country_id: r.country_id,
+      country_name: r.country_name || null,
+      regulatory_body_id: r.regulatory_body_id,
+      regulatory_body_name: r.regulatory_body_name || null,
+      regulatory_type_id: r.regulatory_type_id,
+      regulatory_type_name: r.regulatory_type_name || null,
+    })),
+
+    faq: faqRows.map(f => ({
+      faq_id: f.faq_id,
+      question: f.question || '—',
+      answer: f.answer || '—',
+    })),
   })
 }
